@@ -8,6 +8,7 @@ Needs: pip install bpy numpy
 import os
 import sys
 import json
+import base64
 import numpy as np
 from frutiger import layout, export
 
@@ -56,8 +57,13 @@ def main():
         taken |= names
         path = os.path.join(PREVIEW, g + ".glb")
         export.export_glb(path, names=names)
-        manifest.append(g + ".glb")
-        print("%-10s %3d objects %6.1f MB" % (g, len(names), os.path.getsize(path) / 1e6))
+        # artifact hosting serves JSON but not .glb, so wrap the binary as base64
+        jpath = os.path.join(PREVIEW, g + ".json")
+        with open(jpath, "w") as fh:
+            json.dump({"glb": base64.b64encode(open(path, "rb").read()).decode()}, fh)
+        os.remove(path)
+        manifest.append(g + ".json")
+        print("%-10s %3d objects %6.1f MB" % (g, len(names), os.path.getsize(jpath) / 1e6))
     info = dict(files=manifest, spawn=[list(e[1]) for e in S.empties],
                 notes={k: {a: (float(b) if np.isscalar(b) else b) for a, b in v.items()} for k, v in W.notes.items()})
     json.dump(info, open(os.path.join(PREVIEW, "manifest.json"), "w"), indent=1)

@@ -150,7 +150,13 @@ async function load(){
   const man = await (await fetch('assets/manifest.json')).json();
   const loader = new GLTFLoader();
   const prog = man.files.map(() => 0);
-  await Promise.all(man.files.map((f, i) => new Promise((res, rej) => loader.load('assets/'+f, g => {
+  const done = () => { bar.style.width = (100*prog.reduce((a,b)=>a+b,0)/prog.length)+'%'; };
+  await Promise.all(man.files.map(async (f, i) => {
+    const j = await (await fetch('assets/'+f)).json(); prog[i] = .6; done();
+    const raw = atob(j.glb), buf = new Uint8Array(raw.length);
+    for(let k = 0; k < raw.length; k++) buf[k] = raw.charCodeAt(k);
+    const g = await loader.parseAsync(buf.buffer, '');
+    {
     g.scene.traverse(o => { if(!o.isMesh) return;
       const fix = m => {
         const n = m.name || '';
@@ -167,8 +173,8 @@ async function load(){
       o.castShadow = solid && !o.name.startsWith('NC_water') && !o.name.startsWith('NC_seabed') && !o.name.startsWith('SC_terrain');
       o.receiveShadow = solid;
     });
-    scene.add(g.scene); res();
-  }, e => { prog[i] = e.total ? e.loaded/e.total : .5; bar.style.width = (100*prog.reduce((a,b)=>a+b,0)/prog.length)+'%'; }, rej))));
+    scene.add(g.scene); prog[i] = 1; done(); }
+  }));
   return man;
 }
 
