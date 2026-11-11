@@ -172,10 +172,26 @@ Phase 1 exists because of the unknowns below. It is small on purpose.
 - **Size.** Community maps run from about 16 MB to over 1 GB. Target
   under 150 MB so it loads quickly.
 
-## 8. Open questions
+## 8. Answers so far
 
-1. Do you have ReSkate, ReSkate Studio and Blender installed on a PC?
-2. Can `docs.reskate.dev` and `re-skate.wiki` be added to this
-   environment's allowed hosts?
-3. Time of day: bright noon blue-sky (the canonical look), or dusk with
-   a full aurora? Noon is the default unless you say otherwise.
+- **Art direction.** Early-2000s tropical island adventure games are
+  the mood reference: saturated teal shallows, warm pale sand, leaning
+  palms, weathered timber piers and rope bridges, a waterfall pool,
+  a small offshore islet reached by a bridge. This is inspiration for
+  colour and atmosphere only; the island, its landmarks and layout are
+  original. The Frutiger Aero tech layer (glass, gel, white
+  architecture) sits on top of that paradise base.
+- **High poly.** Dense curved geometry everywhere: smooth transitions,
+  round palms and rocks, real 3D foliage on hero plants. Budget is set
+  by the 150 MB target, not by a low-poly style.
+- **Time of day.** Day/night cycle is wanted if cheap. Whether a custom
+  ReSkate map can drive time of day is unknown without the docs. Plan:
+  design every glowing element (rails, gel rims, aurora, underwater
+  lights) so the map works in both, ship a noon build first, and add a
+  cycle or a separate night variant once Studio's lighting options are
+  seen first-hand.
+- **Toolchain.** ReSkate is installed. Still needed on the PC before
+  any in-game test: Blender (free, blender.org) and ReSkate Studio
+  (distributed through the ReSkate Discord, not GitHub).
+- **Docs access.** Declined for this session. Conventions will be
+  confirmed from the phase 1 round-trip instead.
