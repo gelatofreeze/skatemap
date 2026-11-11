@@ -1,0 +1,256 @@
+<title>Frutiger Air</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600&family=Varela+Round&display=swap">
+<style>
+/* Layout: one full-bleed 3D view; glass control bars float top and bottom. Single look by design: daylight aqua. */
+:root{
+  --sky:#7fd4ff; --deep:#0a6fc2; --aqua:#19e3d0; --lime:#8dc63f; --ink:#063a66; --glass:rgba(255,255,255,.62);
+  --glass-edge:rgba(255,255,255,.9); --shade:rgba(6,58,102,.28);
+  --display:"Varela Round","Segoe UI",system-ui,sans-serif; --body:"Hind","Segoe UI",system-ui,sans-serif;
+}
+html,body{height:100%}
+body{background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hidden}
+#view{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.bar{position:fixed;left:0;right:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));pointer-events:none}
+#top{top:0;padding-top:calc(12px + env(safe-area-inset-top,0px));justify-content:space-between}
+#bottom{bottom:0;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));justify-content:center}
+.bar>*{pointer-events:auto}
+h1{font-family:var(--display);font-size:1.5rem;font-weight:400;margin:0;color:#fff;letter-spacing:.01em;
+  text-shadow:0 1px 0 var(--deep),0 2px 10px var(--shade)}
+h1 small{display:block;font-family:var(--body);font-size:.8rem;font-weight:500;opacity:.95}
+.pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:100%}
+button{font:500 .85rem var(--body);color:var(--ink);border:1px solid var(--glass-edge);border-radius:999px;padding:7px 13px;cursor:pointer;
+  background:linear-gradient(180deg,rgba(255,255,255,.95) 0%,rgba(255,255,255,.55) 48%,rgba(190,235,255,.55) 52%,rgba(255,255,255,.75) 100%);
+  box-shadow:0 2px 8px var(--shade),inset 0 1px 0 #fff}
+button:hover{filter:brightness(1.06)}
+button:focus-visible{outline:3px solid var(--deep);outline-offset:2px}
+button[aria-pressed="true"]{color:#fff;border-color:var(--deep);
+  background:linear-gradient(180deg,#6fd0ff 0%,#1f9bf0 48%,#0a7fd8 52%,#35c3f5 100%);text-shadow:0 1px 0 var(--deep)}
+#hint{font-size:.8rem;color:#fff;text-shadow:0 1px 4px var(--shade);width:100%;text-align:center;margin:0}
+#load{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,var(--deep),var(--sky) 60%,#d8f6ff);color:#fff;text-align:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#load p{font-family:var(--display);font-size:1.3rem;margin:0 0 12px}
+#meter{width:min(280px,70vw);height:14px;border-radius:999px;border:1px solid var(--glass-edge);background:var(--glass);overflow:hidden;margin:auto}
+#meter i{display:block;height:100%;width:0;background:linear-gradient(180deg,#c8ff7a,var(--lime));transition:width .2s}
+</style>
+<canvas id="view" aria-label="3D fly-through of the Frutiger Air skate map"></canvas>
+<div class="bar" id="top">
+  <h1>Frutiger Air<small>skate. map preview</small></h1>
+  <div class="pills" id="times" role="group" aria-label="Time of day"></div>
+</div>
+<div class="bar" id="bottom">
+  <div class="pills" id="views" role="group" aria-label="Jump to a zone"></div>
+  <p id="hint">Drag to look around, scroll or pinch to zoom, right-drag or WASD to move.</p>
+</div>
+<div id="load"><div><p id="loadmsg">Filling the lagoon…</p><div id="meter"><i id="bar"></i></div></div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+
+const Q = new URLSearchParams(location.search);
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:Q.has('shot')});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.shadowMap.enabled = !Q.has('noshadow');
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 6000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.497; controls.minDistance = 3; controls.maxDistance = 900;
+
+// Map coordinates are x east, y north, z up; glTF is y up, so map (x, y, z) -> three (x, z, -y).
+const M = (x, y, z) => new THREE.Vector3(x, z, -y);
+
+// ---- sky ---------------------------------------------------------------
+const skyU = {sun:{value:new THREE.Vector3(0,1,0)}, top:{value:new THREE.Color()}, hor:{value:new THREE.Color()},
+  sunCol:{value:new THREE.Color()}, night:{value:0}, cloud:{value:new THREE.Color()}, time:{value:0}};
+const skyMat = new THREE.ShaderMaterial({side:THREE.BackSide, depthWrite:false, uniforms:skyU,
+  vertexShader:`varying vec3 d; void main(){ d=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`varying vec3 d; uniform vec3 sun,top,hor,sunCol,cloud; uniform float night,time;
+  float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+  float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+  float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=.5;}return s;}
+  void main(){ vec3 v=normalize(d); float y=max(v.y,0.);
+    vec3 c=mix(hor,top,pow(y,.45));
+    float sd=max(dot(v,sun),0.);
+    c+=sunCol*(pow(sd,900.)*6.+pow(sd,24.)*.5+pow(sd,4.)*.18);
+    vec2 uv=v.xz/(v.y+.12)*1.3+vec2(time*.004,0.);
+    float cl=smoothstep(.52,.78,fbm(uv))*smoothstep(0.,.12,v.y);
+    float lit=.75+.25*fbm(uv*2.+3.);
+    c=mix(c,cloud*lit,cl*.92);
+    float st=step(.9985,h(floor(v.xz/(abs(v.y)+.3)*260.)))*night*(1.-cl)*smoothstep(0.,.2,v.y);
+    c+=vec3(st);
+    if(v.y<0.) c=mix(hor,hor*.85,min(-v.y*4.,1.));
+    gl_FragColor=vec4(c,1.); }`});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(5000, 48, 24), skyMat);
+scene.add(sky);
+const envScene = new THREE.Scene(); envScene.add(new THREE.Mesh(sky.geometry, skyMat));
+const pmrem = new THREE.PMREMGenerator(renderer);
+let envRT = null;
+
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, {left:-230, right:230, top:230, bottom:-230, near:10, far:1400});
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.25;
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x88cc66, 1);
+scene.add(hemi);
+scene.fog = new THREE.Fog(0xffffff, 900, 5200);
+
+const TIMES = {
+  morning:{el:24, az:95,  top:'#2f8ff0', hor:'#ffe2bd', sun:'#ffe9c4', light:2.8, hemi:.65, night:0,  cloud:'#ffffff', exp:.85},
+  noon:   {el:58, az:150, top:'#0a5fd8', hor:'#8fd8ff', sun:'#fffaf0', light:3.3, hemi:.55, night:0,  cloud:'#ffffff', exp:.95},
+  evening:{el:9,  az:265, top:'#3a5fd0', hor:'#ffb07a', sun:'#ffb060', light:2.4, hemi:.6,  night:.15,cloud:'#ffd2c2', exp:.9},
+  night:  {el:38, az:210, top:'#050a2a', hor:'#17306e', sun:'#9fc4ff', light:.5,  hemi:.22, night:1,  cloud:'#33466f', exp:1.25},
+};
+let glowMats = [], auroraMats = [], bloom = null;
+function setTime(name){
+  const t = TIMES[name]; if(!t) return;
+  const el = t.el*Math.PI/180, az = t.az*Math.PI/180;
+  const dir = M(Math.cos(el)*Math.cos(az), Math.cos(el)*Math.sin(az), Math.sin(el));
+  skyU.sun.value.copy(dir); skyU.top.value.set(t.top); skyU.hor.value.set(t.hor); skyU.sunCol.value.set(t.sun);
+  skyU.night.value = t.night; skyU.cloud.value.set(t.cloud);
+  sun.position.copy(dir).multiplyScalar(600); sun.color.set(t.sun); sun.intensity = t.light;
+  hemi.intensity = t.hemi; hemi.color.set(t.top).lerp(new THREE.Color('#ffffff'), .6);
+  scene.fog.color.set(t.hor);
+  renderer.toneMappingExposure = t.exp;
+  if(envRT) envRT.dispose();
+  envRT = pmrem.fromScene(envScene, 0, 1, 6000);
+  scene.environment = envRT.texture;
+  for(const m of glowMats) m.emissiveIntensity = m.userData.e0 * (0.35 + 1.4*t.night);
+  for(const m of auroraMats){ m.opacity = m.userData.o0 * 2.5 * t.night; m.visible = t.night > 0; m.emissiveIntensity = m.userData.e0*(.3+.5*t.night); }
+  if(bloom) bloom.strength = .12 + .25*t.night;
+  for(const b of document.querySelectorAll('#times button')) b.setAttribute('aria-pressed', b.dataset.k === name);
+}
+
+// ---- water ripples: a small tiling normal map made on a canvas ----------
+function rippleMap(){
+  const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d'), im = g.createImageData(s, s);
+  const H = (x, y) => { let v = 0; for(const [a, b, ph, w] of [[1,2,0,1],[3,-1,1.7,.6],[-2,5,3.1,.35],[6,3,.5,.2],[-7,-4,2.2,.15]]) v += w*Math.sin((a*x+b*y)/s*6.2832+ph); return v; };
+  for(let y=0;y<s;y++) for(let x=0;x<s;x++){ const dx=(H(x+1,y)-H(x-1,y))*2.2, dy=(H(x,y+1)-H(x,y-1))*2.2, l=Math.hypot(dx,dy,1), i=(y*s+x)*4;
+    im.data[i]=(-dx/l*.5+.5)*255; im.data[i+1]=(-dy/l*.5+.5)*255; im.data[i+2]=(1/l*.5+.5)*255; im.data[i+3]=255; }
+  g.putImageData(im,0,0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const ripples = rippleMap(); ripples.repeat.set(170, 170);
+const ripples2 = ripples.clone(); ripples2.repeat.set(9, 9);
+
+// ---- load ---------------------------------------------------------------
+const bar = document.getElementById('bar');
+async function load(){
+  const man = await (await fetch('assets/manifest.json')).json();
+  const loader = new GLTFLoader();
+  const prog = man.files.map(() => 0);
+  await Promise.all(man.files.map((f, i) => new Promise((res, rej) => loader.load('assets/'+f, g => {
+    g.scene.traverse(o => { if(!o.isMesh) return;
+      const fix = m => {
+        const n = m.name || '';
+        if(n === 'water'){ m.normalMap = o.name.startsWith('NC_water') ? ripples : ripples2; m.normalScale = new THREE.Vector2(.22,.22); m.roughness = .05; m.metalness = 0; m.opacity = .5; m.userData.water = true; }
+        if(m.transparent){ m.depthWrite = false; }
+        if(n.startsWith('glow') || n === 'chrome_glow'){ m.userData.e0 = m.emissiveIntensity; glowMats.push(m); }
+        if(n.startsWith('aurora')){ m.userData.e0 = m.emissiveIntensity; m.userData.o0 = m.opacity; m.side = THREE.DoubleSide; auroraMats.push(m); }
+        if(n.startsWith('gel') || n.startsWith('pave') || n === 'path_aqua' || n === 'tile_aqua'){ m.envMapIntensity = .55; }
+        if(Q.has('bf') && m.side === THREE.FrontSide){ m.side = THREE.DoubleSide; m.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n if(!gl_FrontFacing) gl_FragColor=vec4(1.,0.,0.,1.);'); }; }
+        return m; };
+      o.material = Array.isArray(o.material) ? o.material.map(fix) : fix(o.material);
+      const mats = [].concat(o.material);
+      const solid = !mats.some(m => m.transparent) ;
+      o.castShadow = solid && !o.name.startsWith('NC_water') && !o.name.startsWith('NC_seabed') && !o.name.startsWith('SC_terrain');
+      o.receiveShadow = solid;
+    });
+    scene.add(g.scene); res();
+  }, e => { prog[i] = e.total ? e.loaded/e.total : .5; bar.style.width = (100*prog.reduce((a,b)=>a+b,0)/prog.length)+'%'; }, rej))));
+  return man;
+}
+
+// ---- views ----------------------------------------------------------------
+const VIEWS = {
+  island:  ['Island',      [-330,-300,190], [0,0,10]],
+  spire:   ['Spire',       [34,-46,62],     [0,0,46]],
+  bliss:   ['Bliss Drop',  [-150,-40,36],   [-62,-62,12]],
+  aurora:  ['Aurora Loop', [-20,120,34],    [-62,62,18]],
+  splash:  ['Splash',      [95,300,34],     [0,215,6]],
+  aqueduct:['Aqueduct',    [120,-30,26],    [60,-66,14]],
+  plaza:   ['Aero Plaza',  [185,-52,30],    [108,0,3]],
+  bowls:   ['Bubble Bowls',[-150,-38,34],   [-96,10,3]],
+  minis:   ['Dewdrop Minis',[52,-150,26],   [5,-100,3]],
+  gardens: ['Gardens',     [132,128,26],    [80,80,4]],
+};
+let fly = null;
+function go(k, instant){
+  const v = VIEWS[k]; if(!v) return;
+  const p = M(...v[1]), t = M(...v[2]);
+  if(instant){ camera.position.copy(p); controls.target.copy(t); controls.update(); }
+  else fly = {p0:camera.position.clone(), t0:controls.target.clone(), p, t, u:0};
+  for(const b of document.querySelectorAll('#views button')) b.setAttribute('aria-pressed', b.dataset.k === k);
+}
+for(const [k, v] of Object.entries(VIEWS)){
+  const b = document.createElement('button'); b.textContent = v[0]; b.dataset.k = k; b.id = 'view-'+k;
+  b.onclick = () => { go(k); try{ history.replaceState(null, '', '#'+k); }catch(e){} };
+  document.getElementById('views').append(b);
+}
+for(const k of Object.keys(TIMES)){
+  const b = document.createElement('button'); b.textContent = k[0].toUpperCase()+k.slice(1); b.dataset.k = k; b.id = 'time-'+k;
+  b.onclick = () => setTime(k); document.getElementById('times').append(b);
+}
+addEventListener('hashchange', () => go(location.hash.slice(1)));
+
+// ---- keys -------------------------------------------------------------------
+const keys = {};
+addEventListener('keydown', e => keys[e.code] = true); addEventListener('keyup', e => keys[e.code] = false);
+function move(dt){
+  const f = new THREE.Vector3(); camera.getWorldDirection(f); f.y = 0; f.normalize();
+  const r = new THREE.Vector3().crossVectors(f, camera.up), d = new THREE.Vector3();
+  if(keys.KeyW) d.add(f); if(keys.KeyS) d.sub(f); if(keys.KeyD) d.add(r); if(keys.KeyA) d.sub(r);
+  if(keys.KeyE) d.y += 1; if(keys.KeyQ) d.y -= 1;
+  if(d.lengthSq()){ d.normalize().multiplyScalar(dt*(keys.ShiftLeft ? 90 : 30)); camera.position.add(d); controls.target.add(d); fly = null; }
+}
+
+// ---- render -----------------------------------------------------------------
+let composer = null;
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+  if(composer) composer.setSize(w, h);
+}
+addEventListener('resize', resize);
+if(!Q.has('nobloom')){
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .12, .6, 1.0);
+  composer.addPass(bloom); composer.addPass(new OutputPass());
+}
+resize();
+const clock = new THREE.Clock();
+function frame(){
+  const dt = Math.min(clock.getDelta(), .1);
+  skyU.time.value += dt;
+  ripples.offset.x += dt*.012; ripples.offset.y += dt*.007;
+  move(dt);
+  if(fly){ fly.u = Math.min(1, fly.u + dt/1.6); const e = fly.u*fly.u*(3-2*fly.u);
+    camera.position.lerpVectors(fly.p0, fly.p, e); controls.target.lerpVectors(fly.t0, fly.t, e); if(fly.u >= 1) fly = null; }
+  controls.update();
+  sun.target.position.copy(controls.target); sun.target.position.y = 0;
+  sun.position.copy(skyU.sun.value).multiplyScalar(600).add(sun.target.position);
+  sky.position.copy(camera.position);
+  composer ? composer.render() : renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+load().then(() => {
+  setTime(Q.get('t') || 'noon');
+  go(Q.get('view') || location.hash.slice(1) || 'island', true);
+  if(Q.has('cam')){ const a = Q.get('cam').split(',').map(Number); camera.position.copy(M(a[0],a[1],a[2])); controls.target.copy(M(a[3],a[4],a[5])); controls.update(); }
+  document.getElementById('load').hidden = true;
+  frame();
+  setTimeout(() => window.__ready = true, 1500);
+}).catch(e => { document.getElementById('loadmsg').textContent = 'The map files did not load. Reload the page to try again.'; console.error(e); });
+</script>

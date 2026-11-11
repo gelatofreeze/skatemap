@@ -1,7 +1,7 @@
 # Frutiger Air — project brief
 
 A custom map for EA's *skate.* (2025), delivered as a ReSkate mod.
-Status: **planning**. Nothing is built yet.
+Status: **first full build exists** (see README.md). Not yet tested in game.
 
 ## 1. The pitch
 
