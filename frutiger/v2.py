@@ -122,7 +122,7 @@ def drain(W):
     S, T = W.S, W.T
     deg = 244
     Rb = 24.0
-    zb = HILL_Z + 0.03
+    zb = HILL_Z + 0.004
     p = Prof(-6.5, CROWN_Z).line(1.0).to_heading(4, -85)
     p.line_to_z(zb + Rb * (1 - cos(radians(85)))).to_heading(Rb, 0)
     i_out = len(p.p)
@@ -152,7 +152,7 @@ def drain(W):
     home = np.array([(r_bw + 4.6) * cos(a_bw), (r_bw + 4.6) * sin(a_bw), 0])
     ret = resample(np.vstack([arc, [home + (arc[-1] - home) * 0.5], [home + unit(arc[-1] - home) * 14], [home]]), 1.0)
     s = np.r_[0, np.cumsum(np.linalg.norm(np.diff(ret[:, :2], axis=0), axis=1))]
-    ret[:, 2] = 4.0 + (BW_Z + 0.03 - 4.0) * smoothstep(0, s[-1] - 12, s)
+    ret[:, 2] = 4.0 + (BW_Z + 0.004 - 4.0) * smoothstep(0, s[-1] - 12, s)
     L_arc = Ru * radians(195)
     bank = -0.62 * smoothstep(0, 18, s) * (1 - smoothstep(L_arc - 10, L_arc + 14, s))
     ribbon(S, "drain_return", ret, 7.0, "gel_magenta", bank=bank)
@@ -340,7 +340,7 @@ def real_fish(S, pos, L, yaw, kind="clown", pitch=0.0):
         S.add("NC_fish", fin, tail, [(0, i, i + 1) for i in range(1, 9)])
     else:
         for sg in (-1, 1):
-            tail = [[x0 + 0.03 * L, 0, 0]] + [[x0 - 0.42 * L * cos(t) ** 0.6, 0.05 * L * sg * sin(3 * t), sg * 0.34 * L * sin(t)] for t in np.linspace(0.05, 1.3, 9)]
+            tail = [[x0 + 0.004 * L, 0, 0]] + [[x0 - 0.42 * L * cos(t) ** 0.6, 0.05 * L * sg * sin(3 * t), sg * 0.34 * L * sin(t)] for t in np.linspace(0.05, 1.3, 9)]
             S.add("NC_fish", fin, tail, [(0, i, i + 1) for i in range(1, 9)])
     back = [(float(sv), float(dv)) for sv, dv in zip(s[5:17], depth[5:17])]
     dors = np.array([[[(sv - 0.5) * L, 0, dv * 0.96], [(sv - 0.5) * L - 0.03 * L, 0, dv + 0.09 * L * sin(pi * k / 11) + 0.01 * L]] for k, (sv, dv) in enumerate(back)])
@@ -458,7 +458,7 @@ def island2(W):
     S.sweep("SC_desktop_walk", "marble", walk, [(-3, -2.0), (-3, 0)], closed=True)
     for k in range(4):
         a = radians(20 + k * 90)
-        flow = [(C[0] + (R - 3) * cos(a), C[1] + (R - 3) * sin(a), I2_Z + 0.03), (C[0] + (R + 3) * cos(a), C[1] + (R + 3) * sin(a), I2_Z - 0.1),
+        flow = [(C[0] + (R - 3) * cos(a), C[1] + (R - 3) * sin(a), I2_Z + 0.004), (C[0] + (R + 3) * cos(a), C[1] + (R + 3) * sin(a), I2_Z - 0.1),
                 (C[0] + (float(T.coast2(a)) - 13) * cos(a), C[1] + (float(T.coast2(a)) - 13) * sin(a), I2_Z - 0.37)]
         W.flow_path(W, "desktop_link_%d" % k, flow, 5.0, mat="gel_aqua")
     # causeway from the main island

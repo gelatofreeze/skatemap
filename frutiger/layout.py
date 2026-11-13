@@ -238,7 +238,7 @@ def aqueduct(W):
     path = resample(np.vstack([pts[i_flat:], snake]), 0.8)
     s = np.r_[0, np.cumsum(np.linalg.norm(np.diff(path[:, :2], axis=0), axis=1))]
     Ltot = s[-1]
-    z_end = BW_Z + 0.03
+    z_end = BW_Z + 0.004
     path[:, 2] = np.where(s < 52, path[0, 2] - s * np.tan(radians(3)),
                           (path[0, 2] - 52 * np.tan(radians(3))) + (z_end - (path[0, 2] - 52 * np.tan(radians(3))))
                           * smoothstep(52, Ltot - 10, s) ** 0.9)
@@ -276,7 +276,7 @@ def aqueduct(W):
     for e in (0, -1):
         edge = path + secs[:, e, 0, None] * R_ + (secs[:, e, 1, None] - 0.05) * N_
         m = int(np.searchsorted(s, 50))
-        S.tube("GR_aqueduct_coping", "chrome", edge[m:-8], 0.06, n=8)
+        S.tube("NC_coping", "chrome", edge[m:-8], 0.06, n=8)
         S.grind(edge[m:-8])
     low = path[int(np.searchsorted(s, 50)):]
     sdf = sd_path(low, 5.2)
@@ -356,12 +356,12 @@ def plaza(W):
     S, T = W.S, W.T
     X0 = 56.0
     W_ = 36.0
-    L0 = BW_Z - 0.02 + 3 * sk.RISE
+    L0 = BW_Z - 0.004 + 3 * sk.RISE
     L1 = L0 + 5 * sk.RISE
     L2 = L1 + 8 * sk.RISE
     L3 = L2 + 12 * sk.RISE
     xs = [0.0, 28.0, 52.0, 70.0, 82.0, 116.0]      # terrace front edges (local x)
-    lv = [L3, L2, L1, L0, BW_Z - 0.02]
+    lv = [L3, L2, L1, L0, BW_Z - 0.004]
     T.pad(sd_box((X0 + 58, 0), (56, W_ - 1)), BW_Z - 0.1, 4, deck=True)
     S.push((X0, 0, 0))
     for i in range(5):
@@ -462,12 +462,12 @@ def plaza(W):
         sk.ledge(S, "plaza_bench", 6.0, 0.55, 0.42)
         S.pop()
     for (x, y) in ((92, -26), (92, 26), (106, -12), (106, 12)):
-        planter(W, (x, y, BW_Z - 0.02), 4.5)
-    S.push((96, 0, BW_Z - 0.02))
+        planter(W, (x, y, BW_Z - 0.004), 4.5)
+    S.push((96, 0, BW_Z - 0.004))
     sk.spine(S, "plaza_beach_spine", 8.0, 0.9, 2.0, mat="gel_cyan")
     S.pop()
     for y in (-18, 18):
-        S.push((90, y, BW_Z - 0.02))
+        S.push((90, y, BW_Z - 0.004))
         sk.manual_pad(S, "plaza_beach_pad", 10.0, 2.0, 0.25, top="gel_lime")
         S.pop()
     S.pop()
@@ -541,8 +541,8 @@ def bowls(W):
     specs = [  # centre, outline, depth, transition radius, colour
         ((-13.0, 15.0), lambda t: 9.0, 2.2, 2.6, "gel_cyan"),
         ((13.0, 13.0), lambda t: 10.5 * (1 + 0.17 * cos(3 * t)), 3.0, 3.0, "gel_magenta"),
-        ((-6.0, -13.0), lambda t: 8.6 * (1 + 0.20 * cos(2 * t + 0.6)), 1.7, 2.3, "gel_yellow"),
-        ((-28.0, -4.0), lambda t: 5.0, 1.2, 1.9, "gel_lime"),
+        ((-6.0, -13.0), lambda t: 8.6 * (1 + 0.20 * cos(2 * t + 0.6)), 1.7, 2.1, "gel_yellow"),
+        ((-28.0, -4.0), lambda t: 5.0, 1.2, 1.5, "gel_lime"),
     ]
     holes = []
     S.push((C[0], C[1], Zd))
@@ -571,9 +571,9 @@ def bowls(W):
     S.pop()
     # links: ring -> deck, deck -> boardwalk
     a = radians(172)
-    flow_path(W, "bowls_in", [polar(RING_R + 2.5, 172, float(ring_z(a))), (C[0] + R - 6, C[1] - 2, Zd + 0.03), (C[0] + R - 12, C[1] - 2, Zd + 0.03)], 6.0)
+    flow_path(W, "bowls_in", [polar(RING_R + 2.5, 172, float(ring_z(a))), (C[0] + R - 6, C[1] - 2, Zd + 0.004), (C[0] + R - 12, C[1] - 2, Zd + 0.004)], 6.0)
     a2 = radians(176)
-    flow_path(W, "bowls_out", [(C[0] - R + 4, C[1], Zd + 0.03), (C[0] - R - 6, C[1], Zd - 0.8), polar(float(bw_r(a2)) - 3.0, 176, BW_Z + 0.03)], 6.0)
+    flow_path(W, "bowls_out", [(C[0] - R + 4, C[1], Zd + 0.004), (C[0] - R - 6, C[1], Zd - 0.8), polar(float(bw_r(a2)) - 3.0, 176, BW_Z + 0.004)], 6.0)
 
 
 # -------------------------------------------------------------- minis ---
@@ -637,9 +637,9 @@ def minis(W):
     S.pop()
     S.pop()
     a = radians(273)
-    flow_path(W, "minis_in", [polar(RING_R + 2.5, 273, float(ring_z(a))), (C[0], C[1] + R - 6, Zd + 0.03), (C[0], C[1] + R - 12, Zd + 0.03)], 6.0, mat="gel_cyan")
+    flow_path(W, "minis_in", [polar(RING_R + 2.5, 273, float(ring_z(a))), (C[0], C[1] + R - 6, Zd + 0.004), (C[0], C[1] + R - 12, Zd + 0.004)], 6.0, mat="gel_cyan")
     a2 = radians(272)
-    flow_path(W, "minis_out", [(C[0], C[1] - R + 4, Zd + 0.03), (C[0] + 0.5, C[1] - R - 5, Zd - 0.6), polar(float(bw_r(a2)) - 3.0, 272, BW_Z + 0.03)], 6.0, mat="gel_cyan")
+    flow_path(W, "minis_out", [(C[0], C[1] - R + 4, Zd + 0.004), (C[0] + 0.5, C[1] - R - 5, Zd - 0.6), polar(float(bw_r(a2)) - 3.0, 272, BW_Z + 0.004)], 6.0, mat="gel_cyan")
 
 
 # ------------------------------------------------------------ gardens ---
@@ -678,9 +678,9 @@ def gardens(W):
     for (x, y, r) in ((104, 62, 10.5), (60, 108, 9), (112, 86, 7.5)):
         T.pad(sd_circle((x, y), r), lambda xx, yy, x=x, y=y: T.base(np.array([x]), np.array([y]))[0] + 0.35, 4)
     a = radians(45)
-    flow_path(W, "garden_in", [polar(RING_R + 2.5, 45, float(ring_z(a))), polar(70, 45, 4.2), (C[0] - 19.5, C[1] - 19.5, Zd + 0.03)], 6.0, mat="gel_cyan")
+    flow_path(W, "garden_in", [polar(RING_R + 2.5, 45, float(ring_z(a))), polar(70, 45, 4.2), (C[0] - 19.5, C[1] - 19.5, Zd + 0.004)], 6.0, mat="gel_cyan")
     a2 = radians(44)
-    flow_path(W, "garden_out", [(C[0] + 18, C[1] + 18.5, Zd + 0.03), polar(138, 45, 2.6), polar(float(bw_r(a2)) - 3.0, 44, BW_Z + 0.03)], 6.0, mat="gel_cyan")
+    flow_path(W, "garden_out", [(C[0] + 18, C[1] + 18.5, Zd + 0.004), polar(138, 45, 2.6), polar(float(bw_r(a2)) - 3.0, 44, BW_Z + 0.004)], 6.0, mat="gel_cyan")
 
 
 # -------------------------------------------------------------- islet ---

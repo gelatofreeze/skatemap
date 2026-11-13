@@ -99,7 +99,7 @@ It cannot prove the map is flawless in game; only a play-test can.
   collision, so there are no 1 cm lips.
 - Skate meshes are welded, and bowl decks are triangulated to meet the
   bowl aprons vertex for vertex.
-- Coping stands 8 mm proud, not 5 cm.
+- Coping is visual only and sunk flush; the lip is the smooth ramp edge. Paths meet decks within 4 mm.
 - Palms, rocks and lamps are kept out of the space above skate surfaces.
 - Bubbles, rings, fish, fronds, water and rainbows have no collision.
 
@@ -109,4 +109,12 @@ It cannot prove the map is flawless in game; only a play-test can.
 Copy it to `Mods`, skate, type `fa save`, and send back `telemetry.json`.
 `python3 tools/calibrate.py telemetry.json` then refits gravity and speed
 loss, and the next build re-sizes every gap. Until then gap lengths are
-estimates.
+estimates. They currently use 11 m/s2 in-air gravity (measured by the
+ReSkate Trainer's authors) and an energy figure inferred from one
+play-tested map. The ReSkate Trainer's own jump read-out and CSV telemetry
+(MAP & HUD tab) give the same numbers without this plugin.
+
+`docs/RESEARCH_REPORT.md` has the research behind these choices. Two things
+from it are not yet handled: glow materials will not glow in game (emission
+is ignored, real lights are needed), and glass may need a material change
+to build.

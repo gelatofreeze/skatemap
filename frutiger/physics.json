@@ -1,5 +1,5 @@
 {
-    "gravity": 9.81,
-    "speed_keep": 0.7,
-    "source": "assumed; replace by running tools/calibrate.py on telemetry.json from the game"
+    "gravity": 11.0,
+    "speed_keep": 0.62,
+    "source": "gravity: ReSkate Trainer README (in-air, measured). speed_keep: inferred from one play-tested mega ramp (SkateTanic); replace with tools/calibrate.py once telemetry exists"
 }
