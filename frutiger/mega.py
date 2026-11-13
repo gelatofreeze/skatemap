@@ -4,7 +4,10 @@ import numpy as np
 from math import sin, cos, atan2, sqrt, radians, pi
 from .mesh import frames, Z, smoothstep
 
-G = 9.81
+import json, os
+_PHYS = json.load(open(os.path.join(os.path.dirname(__file__), "physics.json")))
+G = _PHYS["gravity"]            # measured in game when available (tools/calibrate.py)
+KEEP = _PHYS["speed_keep"]      # share of drop energy still held at a lip
 
 
 class Prof:
@@ -12,12 +15,12 @@ class Prof:
     Tracks speed by energy so gaps can be sized. eff is the fraction of
     potential energy kept (friction, pumping losses); tune after play-test."""
 
-    def __init__(self, x=0.0, z=0.0, h=0.0, z_start=None, eff=0.7):
+    def __init__(self, x=0.0, z=0.0, h=0.0, z_start=None, eff=None):
         self.p = [(x, z)]
         self.lat = [0.0]
         self.h = h
         self.z0 = z if z_start is None else z_start
-        self.eff = eff
+        self.eff = KEEP if eff is None else eff
         self.marks = {}
         self._lat = 0.0
         self.breaks = []          # indices where the ribbon is cut (gaps)

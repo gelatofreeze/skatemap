@@ -1,0 +1,5 @@
+{
+    "gravity": 9.81,
+    "speed_keep": 0.7,
+    "source": "assumed; replace by running tools/calibrate.py on telemetry.json from the game"
+}

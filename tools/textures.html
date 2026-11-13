@@ -1,0 +1,157 @@
+<!doctype html><meta charset="utf-8">
+<!-- Source artwork for the map's textures. tools/render_textures.js screenshots each .tex element to frutiger/textures/<id>.png -->
+<style>
+body{margin:0;background:#222;font-family:"Liberation Sans",Arial,"DejaVu Sans",sans-serif}
+.tex{position:relative;overflow:hidden;margin:0 0 8px 0}
+/* ---- retro window chrome ---- */
+.win{background:#c3c7cb;box-shadow:inset 3px 3px 0 #fff,inset -3px -3px 0 #3a3a3a,inset 6px 6px 0 #e4e6e8,inset -6px -6px 0 #86898c;padding:9px;box-sizing:border-box;display:flex;flex-direction:column}
+.title{background:linear-gradient(90deg,#0a2a8c,#1c7fe0 70%,#59c6ff);color:#fff;font-weight:bold;display:flex;align-items:center;gap:10px;padding:0 8px;flex:none}
+.title .ico{border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#6fe1ff 35%,#0a8fe6 75%);border:2px solid #fff}
+.title .sp{flex:1}
+.btn{background:#c3c7cb;box-shadow:inset 2px 2px 0 #fff,inset -2px -2px 0 #3a3a3a;color:#000;display:grid;place-items:center;font-weight:bold}
+.menu{display:flex;gap:26px;padding:0 10px;color:#000;flex:none;align-items:center}
+.menu u{text-decoration-thickness:2px}
+.sunk{box-shadow:inset 3px 3px 0 #6d7073,inset -3px -3px 0 #fff;background:#fff}
+canvas{display:block}
+</style>
+
+<!-- paint program window -->
+<div class="tex win" id="win_paint" style="width:1024px;height:768px;font-size:26px">
+  <div class="title" style="height:54px;font-size:28px"><span class="ico" style="width:30px;height:30px"></span>untitled - Paint<span class="sp"></span>
+    <span class="btn" style="width:44px;height:40px">_</span><span class="btn" style="width:44px;height:40px">□</span><span class="btn" style="width:44px;height:40px">✕</span></div>
+  <div class="menu" style="height:46px"><span><u>F</u>ile</span><span><u>E</u>dit</span><span><u>V</u>iew</span><span><u>I</u>mage</span><span><u>C</u>olors</span><span><u>H</u>elp</span></div>
+  <div style="display:flex;flex:1;gap:8px;min-height:0">
+    <div id="tools" style="width:116px;display:grid;grid-template-columns:1fr 1fr;gap:4px;align-content:start;padding-top:4px"></div>
+    <div class="sunk" style="flex:1;padding:4px;background:#7b8087"><canvas id="doodle" width="860" height="548" style="background:#fff"></canvas></div>
+  </div>
+  <div id="pal" style="height:64px;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:1fr 1fr;gap:3px;padding:8px 0 0 124px;flex:none"></div>
+</div>
+
+<!-- pool window with caustics and a duck -->
+<div class="tex win" id="win_pool" style="width:1024px;height:768px;font-size:26px">
+  <div class="title" style="height:54px;font-size:28px;background:linear-gradient(90deg,#0b0b8a,#1b4fd0)"><span class="ico" style="width:30px;height:30px"></span>Lagoon<span class="sp"></span>
+    <span class="btn" style="width:44px;height:40px">_</span><span class="btn" style="width:44px;height:40px">□</span><span class="btn" style="width:44px;height:40px">✕</span></div>
+  <div class="menu" style="height:46px"><span><u>F</u>ile</span><span><u>E</u>dit</span><span><u>V</u>iew</span><span><u>H</u>elp</span></div>
+  <div style="display:flex;height:40px;flex:none;color:#000;font-size:22px"><span class="btn" style="flex:1;justify-items:start;padding-left:10px">Name</span><span class="btn" style="flex:1.6;justify-items:start;padding-left:10px">Original Location</span></div>
+  <div class="sunk" style="flex:1;padding:4px"><canvas id="poolc" width="990" height="552"></canvas></div>
+  <div style="height:36px;flex:none;display:flex;margin-top:4px"><span class="btn" style="width:40px">◀</span><span style="flex:1;background:repeating-conic-gradient(#fff 0 25%,#c3c7cb 0 50%) 0 0/6px 6px;position:relative"><span class="btn" style="position:absolute;left:0;width:240px;height:100%"></span></span><span class="btn" style="width:40px">▶</span></div>
+</div>
+
+<!-- error dialog: used for the cascading-window stair set -->
+<div class="tex win" id="win_error" style="width:768px;height:384px;font-size:26px">
+  <div class="title" style="height:50px;font-size:26px">skate.exe<span class="sp"></span><span class="btn" style="width:42px;height:38px">✕</span></div>
+  <div style="flex:1;display:flex;align-items:center;gap:30px;padding:0 34px;color:#000">
+    <span style="width:86px;height:86px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8a8a,#e01515 60%,#8a0000);display:grid;place-items:center;color:#fff;font-size:60px;font-weight:bold;flex:none;border:3px solid #fff;box-shadow:0 0 0 2px #7a0000">✕</span>
+    <span>This program has performed<br>an illegal kickflip and will<br>keep going.</span></div>
+  <div style="display:flex;justify-content:center;padding-bottom:22px"><span class="btn" style="width:170px;height:52px;outline:2px dotted #000;outline-offset:-9px">OK</span></div>
+</div>
+
+<!-- taskbar: wraps a long ledge -->
+<div class="tex" id="taskbar" style="width:2048px;height:96px;background:#c3c7cb;box-shadow:inset 0 4px 0 #fff;display:flex;align-items:center;gap:10px;padding:0 10px;box-sizing:border-box;font-size:34px;font-weight:bold">
+  <span class="btn" style="height:72px;padding:0 20px;display:flex;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9dff5a 35%,#2fa312 80%);border:2px solid #fff;box-shadow:0 0 0 2px #1d6b0a"></span>Go</span>
+  <span class="btn" style="height:72px;width:420px;justify-content:start;padding-left:16px;font-weight:normal;box-shadow:inset 2px 2px 0 #3a3a3a,inset -2px -2px 0 #fff;background:repeating-conic-gradient(#fff 0 25%,#c3c7cb 0 50%) 0 0/6px 6px">untitled - Paint</span>
+  <span class="btn" style="height:72px;width:420px;justify-content:start;padding-left:16px;font-weight:normal">Lagoon</span>
+  <span class="btn" style="height:72px;width:420px;justify-content:start;padding-left:16px;font-weight:normal">Frutiger Air</span>
+  <span style="flex:1"></span>
+  <span class="sunk" style="height:68px;padding:0 22px;display:grid;place-items:center;background:#c3c7cb;font-weight:normal">4:20 PM</span>
+</div>
+
+<!-- progress bar: manual pad top -->
+<div class="tex" id="progress" style="width:1024px;height:192px;background:#c3c7cb;box-sizing:border-box;padding:26px">
+  <div class="sunk" style="height:100%;box-sizing:border-box;padding:10px;display:flex;gap:8px;background:#fff" id="segs"></div>
+</div>
+
+<!-- glossy media player -->
+<div class="tex" id="player" style="width:1024px;height:640px;background:linear-gradient(180deg,#bfe9ff,#4aa8f0)">
+  <div style="position:absolute;inset:26px;border-radius:150px 150px 90px 90px;background:linear-gradient(180deg,#f7fbff 0%,#cfe6f7 45%,#8fc3ea 55%,#dff1fc 100%);box-shadow:inset 0 6px 10px #fff,inset 0 -10px 24px #3d83c4,0 0 0 6px #2a6fb8"></div>
+  <div style="position:absolute;left:90px;top:78px;width:844px;height:270px;border-radius:120px 120px 60px 60px;background:radial-gradient(ellipse at 40% 20%,#3ea0ff,#0b3fa8 70%,#06256e);box-shadow:inset 0 0 0 6px #7fc4ff,inset 0 14px 30px rgba(255,255,255,.45);color:#d9f4ff;font-family:'DejaVu Sans Mono',monospace">
+    <div style="position:absolute;left:70px;top:44px;font-size:34px;letter-spacing:4px">FRUTIGER AIR - 1st session</div>
+    <div style="position:absolute;left:70px;top:104px;font-size:110px;font-weight:bold;letter-spacing:6px;text-shadow:0 0 18px #7fe3ff">00:00</div>
+    <div id="viz" style="position:absolute;right:60px;bottom:40px;display:flex;gap:8px;align-items:flex-end;height:150px"></div>
+  </div>
+  <div id="pbtns" style="position:absolute;left:110px;top:400px;display:flex;gap:26px;align-items:center"></div>
+  <div style="position:absolute;right:120px;top:388px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#fff,#dff7c8 30%,#6fd12a 60%,#2f8f0f);box-shadow:inset 0 -8px 16px #1f6b0a,0 0 0 8px #f2f8fc,0 0 0 12px #6fa9dc"></div>
+</div>
+
+<!-- sky-and-hills wallpaper with bubbles -->
+<div class="tex" id="wallpaper" style="width:1024px;height:640px"><canvas id="wallc" width="1024" height="640"></canvas></div>
+
+<!-- tiling: caustic pool water -->
+<div class="tex" id="caustics" style="width:1024px;height:1024px"><canvas id="causc" width="1024" height="1024"></canvas></div>
+<!-- tiling: boardwalk planks -->
+<div class="tex" id="planks" style="width:1024px;height:1024px"><canvas id="plankc" width="1024" height="1024"></canvas></div>
+<!-- tiling: glossy pavers -->
+<div class="tex" id="tiles" style="width:1024px;height:1024px"><canvas id="tilec" width="1024" height="1024"></canvas></div>
+<!-- clownfish and goldfish skins: u runs tail to nose, v wraps the body -->
+<div class="tex" id="clownfish" style="width:1024px;height:512px"><canvas id="clownc" width="1024" height="512"></canvas></div>
+<div class="tex" id="goldfish" style="width:1024px;height:512px"><canvas id="goldc" width="1024" height="512"></canvas></div>
+<!-- compact disc -->
+<div class="tex" id="cd" style="width:1024px;height:1024px;background:#eef3f7">
+  <div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,#f4f7fa,#ff9ad5,#ffe98a,#9dff9d,#7fe9ff,#b9a7ff,#f4f7fa,#dfe6ee,#7fe9ff,#9dff9d,#ffe98a,#ff9ad5,#f4f7fa)"></div>
+  <div style="position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.0) 0 5px,rgba(255,255,255,.22) 5px 6px)"></div>
+  <div style="position:absolute;inset:330px;border-radius:50%;background:radial-gradient(circle,#eef3f7 0 38%,#c9d3dc 39% 44%,#f7fafc 45% 100%);box-shadow:0 0 0 4px #b8c4ce"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+// seeded noise helpers
+let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+// ---- paint window bits ----
+const glyphs=['✂','▭','◌','✎','🖌','A','╲','∿','▢','◇','○','▱','⬚','◐','🔍','✦'];
+for(const g of glyphs){const b=document.createElement('span');b.className='btn';b.style.cssText='height:50px;font-size:26px;font-family:DejaVu Sans,sans-serif';b.textContent=g;$('tools').append(b)}
+const cols=['#000','#7f7f7f','#7f0000','#7f7f00','#007f00','#007f7f','#00007f','#7f007f','#7f7f3f','#003f3f','#007fff','#003f7f','#3f00ff','#7f3f00','#19e3d0','#fff','#c3c3c3','#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff','#ffff7f','#00ff7f','#7fffff','#7f7fff','#ff007f','#ff7f3f','#8dc63f'];
+for(const c of cols){const b=document.createElement('span');b.className='sunk';b.style.background=c;$('pal').append(b)}
+{ const c=$('doodle').getContext('2d'); c.lineCap='round'; c.lineJoin='round';
+  c.fillStyle='#7fd4ff'; c.fillRect(0,0,860,330); c.fillStyle='#19c9e6'; c.fillRect(0,330,860,90); c.fillStyle='#f6e7b8'; c.fillRect(0,420,860,128);
+  c.fillStyle='#ffe21a'; c.beginPath(); c.arc(700,110,62,0,7); c.fill(); c.strokeStyle='#ffe21a'; c.lineWidth=10;
+  for(let a=0;a<12;a++){c.beginPath();c.moveTo(700+80*Math.cos(a*.524),110+80*Math.sin(a*.524));c.lineTo(700+112*Math.cos(a*.524),110+112*Math.sin(a*.524));c.stroke()}
+  c.strokeStyle='#8a5a2b'; c.lineWidth=22; c.beginPath(); c.moveTo(190,470); c.quadraticCurveTo(170,320,230,200); c.stroke();
+  c.strokeStyle='#2fa312'; c.lineWidth=20; for(const [dx,dy] of [[-130,-10],[-90,-80],[0,-110],[100,-70],[130,10]]){c.beginPath();c.moveTo(230,200);c.quadraticCurveTo(230+dx*.6,200+dy,230+dx,200+dy+70);c.stroke()}
+  c.strokeStyle='#fff'; c.lineWidth=12; for(let i=0;i<5;i++){c.beginPath();c.moveTo(20+i*180,372);c.quadraticCurveTo(60+i*180,350,100+i*180,372);c.stroke()}
+  c.strokeStyle='#ff2d95'; c.lineWidth=18; c.beginPath(); c.moveTo(420,480); c.lineTo(640,480); c.stroke();
+  c.fillStyle='#000'; c.beginPath(); c.arc(455,505,17,0,7); c.arc(605,505,17,0,7); c.fill();
+  c.strokeStyle='#000'; c.lineWidth=7; c.font='bold 54px Liberation Sans, Arial'; c.fillStyle='#0a5fd8'; c.fillText('SKATE!',430,250); }
+// ---- caustics ----
+function caustics(ctx,w,h,base,tile){ const im=ctx.createImageData(w,h); const T=6.2832;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let u=x/w*T,v=y/h*T,s=0;
+    let a=u+0.9*Math.sin(v*2+1.3)+0.5*Math.sin(u*3+v),b=v+0.9*Math.sin(u*2+0.4)+0.5*Math.sin(v*3-u*2);
+    for(const [k1,k2,p] of [[3,2,0],[5,-3,1.7],[2,5,3.9],[7,4,.6]]) s+=1-Math.abs(Math.sin((a*k1+b*k2)/2+p));
+    s=Math.pow(s/4,4.5)*3.2; const i=(y*w+x)*4; const dp=.5+.5*Math.sin(u+v*2);
+    im.data[i]=Math.min(255,base[0]+dp*18+s*230); im.data[i+1]=Math.min(255,base[1]+dp*22+s*200); im.data[i+2]=Math.min(255,base[2]+s*90); im.data[i+3]=255; }
+  ctx.putImageData(im,0,0); }
+caustics($('causc').getContext('2d'),1024,1024,[18,150,225]);
+{ const c=$('poolc').getContext('2d'); caustics(c,990,552,[10,120,230]);
+  // rubber duck
+  c.fillStyle='rgba(0,40,120,.25)'; c.beginPath(); c.ellipse(500,330,95,26,0,0,7); c.fill();
+  c.fillStyle='#ffd21a'; c.beginPath(); c.ellipse(490,285,86,56,0,0,7); c.fill(); c.beginPath(); c.arc(548,222,46,0,7); c.fill();
+  c.beginPath(); c.moveTo(410,270); c.quadraticCurveTo(380,230,416,236); c.fill();
+  c.fillStyle='#ff8a00'; c.beginPath(); c.ellipse(596,232,24,11,0,0,7); c.fill(); c.fillStyle='#000'; c.beginPath(); c.arc(560,210,6,0,7); c.fill();
+  c.fillStyle='rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(470,262,34,14,-.3,0,7); c.fill(); }
+// ---- progress, viz, player buttons ----
+for(let i=0;i<14;i++){const s=document.createElement('span');s.style.cssText='flex:1;background:linear-gradient(180deg,#d6ffad,#6fe01e 45%,#3fb30f 55%,#8ff04a)'+(i>10?';visibility:hidden':'');$('segs').append(s)}
+for(let i=0;i<16;i++){const s=document.createElement('span');const hgt=30+Math.abs(Math.sin(i*1.7)+Math.sin(i*.6))*60;s.style.cssText=`width:14px;height:${hgt}px;background:linear-gradient(180deg,#b6ff7a,#35e6ff)`;$('viz').append(s)}
+for(const g of ['▶','■','⏮','⏭']){const s=document.createElement('span');s.textContent=g;s.style.cssText='width:118px;height:118px;border-radius:50%;display:grid;place-items:center;font-size:50px;color:#1f66b8;font-family:DejaVu Sans,sans-serif;background:radial-gradient(circle at 35% 26%,#fff,#e8f4fd 40%,#a9d3f2 75%,#6faede);box-shadow:inset 0 -6px 12px #5d9bd1,0 0 0 5px #f2f8fc,0 0 0 9px #6fa9dc';$('pbtns').append(s)}
+// ---- wallpaper ----
+{ const c=$('wallc').getContext('2d'); let g=c.createLinearGradient(0,0,0,440); g.addColorStop(0,'#0a5fd8'); g.addColorStop(1,'#bdeeff'); c.fillStyle=g; c.fillRect(0,0,1024,640);
+  c.fillStyle='rgba(255,255,255,.9)'; for(const [x,y,r] of [[180,150,60],[250,130,80],[330,160,55],[720,210,50],[790,190,70],[860,215,45]]){c.beginPath();c.ellipse(x,y,r*1.5,r*.6,0,0,7);c.fill()}
+  for(const [y0,col,ph] of [[420,'#3fb618',0],[470,'#58c81c',2],[520,'#7be02c',4]]){ c.fillStyle=col; c.beginPath(); c.moveTo(0,640); for(let x=0;x<=1024;x+=8) c.lineTo(x,y0+50*Math.sin(x/190+ph)+18*Math.sin(x/61+ph)); c.lineTo(1024,640); c.fill(); }
+  for(let i=0;i<22;i++){ const x=rnd()*1024,y=rnd()*520,r=14+rnd()*60; let b=c.createRadialGradient(x-r*.3,y-r*.35,r*.05,x,y,r); b.addColorStop(0,'rgba(255,255,255,.95)'); b.addColorStop(.25,'rgba(255,255,255,.18)'); b.addColorStop(.85,'rgba(170,235,255,.22)'); b.addColorStop(1,'rgba(255,255,255,.75)'); c.fillStyle=b; c.beginPath(); c.arc(x,y,r,0,7); c.fill(); } }
+// ---- planks ----
+{ const c=$('plankc').getContext('2d'); const n=8,h=1024/n; for(let i=0;i<n;i++){ const t=rnd(); c.fillStyle=`rgb(${214+t*26},${178+t*24},${128+t*22})`; c.fillRect(0,i*h,1024,h);
+    for(let k=0;k<70;k++){ c.strokeStyle=`rgba(120,80,40,${.05+rnd()*.12})`; c.lineWidth=1+rnd()*2; const y=i*h+rnd()*h; c.beginPath(); c.moveTo(0,y); c.bezierCurveTo(340,y+rnd()*8-4,680,y+rnd()*8-4,1024,y); c.stroke(); }
+    c.fillStyle='rgba(60,35,10,.55)'; c.fillRect(0,i*h,1024,4); const off=(i%2)*512+rnd()*200; c.fillRect(off%1024,i*h,4,h); c.fillStyle='rgba(255,255,255,.25)'; c.fillRect(0,i*h+4,1024,3); } }
+// ---- tiles ----
+{ const c=$('tilec').getContext('2d'); const n=4,s=1024/n; for(let i=0;i<n;i++)for(let j=0;j<n;j++){ const t=rnd(); let g=c.createLinearGradient(i*s,j*s,i*s+s,j*s+s); g.addColorStop(0,`rgb(${248-t*8},${251-t*6},255)`); g.addColorStop(1,`rgb(${228-t*10},${238-t*8},${246-t*4})`); c.fillStyle=g; c.fillRect(i*s,j*s,s,s);
+    c.strokeStyle='rgba(120,150,175,.9)'; c.lineWidth=5; c.strokeRect(i*s,j*s,s,s); c.strokeStyle='rgba(255,255,255,.9)'; c.lineWidth=3; c.strokeRect(i*s+5,j*s+5,s-10,s-10); } }
+// ---- fish skins ----
+function fishSkin(id,body,belly,bands){ const c=$(id).getContext('2d'); let g=c.createLinearGradient(0,0,0,512); g.addColorStop(0,body[0]); g.addColorStop(.5,body[1]); g.addColorStop(1,body[0]); c.fillStyle=g; c.fillRect(0,0,1024,512);
+  // v wraps the body: belly is at v = 0 and v = 1, the back at v = 0.5
+  let b=c.createLinearGradient(0,0,0,512); b.addColorStop(0,belly); b.addColorStop(.22,'rgba(255,255,255,0)'); b.addColorStop(.78,'rgba(255,255,255,0)'); b.addColorStop(1,belly); c.fillStyle=b; c.fillRect(0,0,1024,512);
+  for(let x=40;x<1000;x+=26)for(let y=0;y<512;y+=22){ c.strokeStyle='rgba(120,40,0,.16)'; c.lineWidth=2; c.beginPath(); c.arc(x+((y/22)%2)*13,y,12,-1.2,1.2); c.stroke(); }
+  for(const [u,w] of bands){ c.fillStyle='#111'; c.beginPath(); for(let y=0;y<=512;y+=8) c.lineTo(u-w/2-10+14*Math.sin(y/55+u),y); for(let y=512;y>=0;y-=8) c.lineTo(u+w/2+10+14*Math.sin(y/48+u*2),y); c.fill();
+    c.fillStyle='#fff'; c.beginPath(); for(let y=0;y<=512;y+=8) c.lineTo(u-w/2+14*Math.sin(y/55+u),y); for(let y=512;y>=0;y-=8) c.lineTo(u+w/2+14*Math.sin(y/48+u*2),y); c.fill(); }
+  for(const y of [150,362]){ c.fillStyle='#fff'; c.beginPath(); c.arc(930,y,26,0,7); c.fill(); c.fillStyle='#000'; c.beginPath(); c.arc(936,y,15,0,7); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(941,y-6,5,0,7); c.fill(); } }
+fishSkin('clownc',['#ff5a00','#ff8c1a'],'rgba(255,170,60,.7)',[[250,70],[560,110],[840,70]]);
+fishSkin('goldc',['#ff7a00','#ffb01a'],'rgba(255,240,200,.9)',[]);
+document.title='ready';
+</script>

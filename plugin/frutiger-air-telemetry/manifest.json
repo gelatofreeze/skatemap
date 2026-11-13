@@ -1,0 +1,7 @@
+{
+    "name": "FrutigerAirTelemetry",
+    "version_number": "0.1.0",
+    "website_url": "",
+    "description": "Logs jump and speed measurements so the Frutiger Air map's landings can be sized from the game's real physics.",
+    "dependencies": []
+}
