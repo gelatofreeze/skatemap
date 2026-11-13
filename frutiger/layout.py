@@ -5,6 +5,8 @@ from .mesh import Scene, Z, smooth_path, resample, smoothstep, unit, frames
 from .terrain import Terrain, sd_circle, sd_box, sd_path
 from .mega import Prof, ribbon, pylons
 from . import skate as sk, scenery as sc
+from . import v2
+from .v2 import MID_R
 
 DECK_Z = 45.0        # top of the Spire, where every mega line starts
 HILL_Z = 12.3
@@ -34,6 +36,8 @@ class World:
         self.keepout = []       # elevated paths that scenery must avoid
         self.wall_gaps = []     # boardwalk seawall openings (deg, half-width deg)
         self.notes = {}
+        self.i2_keep = []       # obstacles on the second island that pylons must miss
+        self.flow_path = flow_path
 
 
 # ------------------------------------------------------------------ hub ---
@@ -41,8 +45,8 @@ def hub(W):
     S, T = W.S, W.T
     T.pad(sd_circle((0, 0), 19), HILL_Z, 16)
     S.disc("SK_hub_plaza", "pave_blue", (0, 0, HILL_Z), 19.5, n=96)
-    S.disc("SK_hub_plaza", "gel_white", (0, 0, HILL_Z + 0.012), 19.5, n=96, r0=18.7)
-    S.disc("SK_hub_plaza", "gel_cyan", (0, 0, HILL_Z + 0.012), 10.2, n=96, r0=9.6)
+    S.disc("NC_decals", "gel_white", (0, 0, HILL_Z + 0.012), 19.5, n=96, r0=18.7)
+    S.disc("NC_decals", "gel_cyan", (0, 0, HILL_Z + 0.012), 10.2, n=96, r0=9.6)
     S.lathe("SC_hub_plaza", "shell_white", [(19.5, HILL_Z - 3), (19.5, HILL_Z)], n=96)
     H = DECK_Z - HILL_Z
     S.push((0, 0, HILL_Z))
@@ -56,8 +60,8 @@ def hub(W):
         rr = shaft_r(u) + 0.16
         S.tube("SC_spire_ribs", "shell_white", np.c_[rr * np.cos(a), rr * np.sin(a), u * (H - 0.5)], 0.2, n=8, caps=False)
     S.disc("SK_spire_deck", "gel_white", (0, 0, H), 13.0, n=120)
-    S.disc("SK_spire_deck", "gel_cyan", (0, 0, H + 0.012), 6.6, n=120, r0=6.0)
-    S.disc("SK_spire_deck", "gel_lime", (0, 0, H + 0.012), 2.2, n=60)
+    S.disc("NC_decals", "gel_cyan", (0, 0, H + 0.012), 6.6, n=120, r0=6.0)
+    S.disc("NC_decals", "gel_lime", (0, 0, H + 0.012), 2.2, n=60)
     S.lathe("SC_spire", "shell_white", [(13.0, H - 0.45), (13.2, H - 0.22), (13.0, H)], n=120)
     S.pop()
     for a0, a1 in ((161, 199), (251, 289), (341, 424)):
@@ -81,7 +85,7 @@ def hub(W):
 def flow_path(W, name, ctrl, width=6.0, mat="path_aqua", pad=True, step=1.0):
     """Ground-level smooth concrete path through control points."""
     path = smooth_path(ctrl, step)
-    ribbon(W.S, name, path, width, mat, thick=0.5, edge=0.35)
+    ribbon(W.S, name, path, width, mat, thick=1.6, edge=0.35)
     if pad:
         sdf = sd_path(path, width / 2 + 0.5)
         zz = path[:, 2].copy()
@@ -104,7 +108,7 @@ def ring_and_spurs(W):
     for deg in (0, 45, 180, 270):
         a = radians(deg)
         flow_path(W, "hillrun_%d" % deg,
-                  [polar(18.5, deg, HILL_Z), polar(27, deg, HILL_Z - 0.6), polar(40, deg, float(ring_z(a)) + 1.6),
+                  [polar(30.5, deg, HILL_Z), polar(36, deg, HILL_Z - 0.8), polar(44, deg, float(ring_z(a)) + 1.4),
                    polar(49.5, deg, float(ring_z(a)))], width=5.0, mat="gel_lime")
 
 
@@ -113,7 +117,8 @@ def build_mega(W, name, prof, deg, width, mat, pad_from=None, pad_z=None, skip=(
     S, T = W.S, W.T
     pts = prof.points((0, 0, 0), radians(deg))
     ribbon(S, name, pts, width, mat, breaks=prof.breaks)
-    W.late.append(lambda: pylons(S, T, name, pts, skip=skip))
+    okp = lambda x, y: hypot(x, y) > 33 and bool(T.clear_of_pads(np.array([x]), np.array([y]), 0.8)[0])
+    W.late.append(lambda: pylons(S, T, name, pts, skip=skip, ok=okp if pad_from is None else None))
     W.keepout.append(sd_path(pts[::3], width / 2 + 3))
     if pad_from is not None:
         T.pad(sd_path(pts[pad_from:], width / 2 + 2.5), pad_z, 6)
@@ -137,7 +142,7 @@ def bliss_drop(W):
     R = 24.0
     lip = 11.5
     low = lip - R * (1 - cos(radians(24)))
-    p = Prof(12.4, DECK_Z).line(2.0).to_heading(8, -48)
+    p = Prof(MID_R, DECK_Z).line(2.0).to_heading(8, -48)
     p.line_to_z(low + R * (1 - cos(radians(48)))).to_heading(R, 24)
     p.gap(-30)
     p.down_to(3.2, 14)
@@ -150,7 +155,7 @@ def bliss_drop(W):
 def aurora_loop(W):
     S = W.S
     R = 26.0
-    p = Prof(12.4, DECK_Z).line(2.0).to_heading(8, -45)
+    p = Prof(MID_R, DECK_Z).line(2.0).to_heading(8, -45)
     p.line_to_z(14.5 + R * (1 - cos(radians(45)))).to_heading(R, 0).line(3)
     i0 = len(p.p)
     p.arc(13, radians(60), lat=1.8).arc(6.5, radians(240), lat=5.6).arc(13, radians(60), lat=1.8)
@@ -179,7 +184,7 @@ def aurora_loop(W):
 def splash(W):
     S, T = W.S, W.T
     R = 30.0
-    p = Prof(12.4, DECK_Z).line(2.0).to_heading(8, -42)
+    p = Prof(MID_R, DECK_Z).line(2.0).to_heading(8, -42)
     p.line_to_z(17 + R * (cos(radians(4)) - cos(radians(42)))).to_heading(R, -4)
     p.line((166 - p.x) / cos(radians(4)), step=1.5)
     Rk = 22.0
@@ -209,12 +214,13 @@ def splash_pad_and_return(W, pts):
     ribbon(S, "reef_walk", path, 4.0, "gel_aqua", thick=0.4, edge=0.3)
     W.late.append(lambda: pylons(S, W.T, "reef_walk", path, every=9, r=0.3, min_h=0.3))
     W.wall_gaps.append((58, 3.0))
+    W.keepout.append(sd_path(path[::4], 6))
 
 
 def aqueduct(W):
     S, T = W.S, W.T
     R = 20.0
-    p = Prof(12.4, DECK_Z).line(2.0).to_heading(8, -50)
+    p = Prof(MID_R, DECK_Z).line(2.0).to_heading(8, -50)
     p.line_to_z(13.5 + R * (cos(radians(3)) - cos(radians(50)))).to_heading(R, -3)
     i_flat = len(p.p) - 1
     p.line(52, step=0.8)
@@ -268,7 +274,7 @@ def aqueduct(W):
     # copings along the open channel edges
     T_, N_, R_ = frames(path)
     for e in (0, -1):
-        edge = path + secs[:, e, 0, None] * R_ + (secs[:, e, 1, None] + 0.02) * N_
+        edge = path + secs[:, e, 0, None] * R_ + (secs[:, e, 1, None] - 0.05) * N_
         m = int(np.searchsorted(s, 50))
         S.tube("GR_aqueduct_coping", "chrome", edge[m:-8], 0.06, n=8)
         S.grind(edge[m:-8])
@@ -295,12 +301,18 @@ def aqueduct(W):
             S.lathe("SC_aquarium_frame", "shell_white", [(1.6, -1), (1.1, 1.5), (0.9, z0 - 2.4), (1.7, z0 - 0.8)], n=16)
             S.pop()
     rng = np.random.default_rng(11)
-    for k in range(46):
-        x, y, z = rng.uniform(-10.5, 10.5), rng.uniform(-6.8, 6.8), rng.uniform(z0 + 0.8, z1 - 0.8)
+    S.box("NC_aquarium_sand", "sand", (-11.9, -7.9, z0 + 0.02), (11.9, 7.9, z0 + 0.35))
+    for k in range(70):
+        x, y, z = rng.uniform(-10.5, 10.5), rng.uniform(-6.8, 6.8), rng.uniform(z0 + 1.2, z1 - 0.8)
         if hypot(y, z - (mid[2] + 4.0)) < 5.0:
             continue
-        sc.fish(S, (x, y, z), rng.uniform(0.5, 1.3), rng.choice([0, pi]) + rng.uniform(-0.4, 0.4),
-                mat=rng.choice(["fish_orange", "fish_orange", "fish_blue", "fish_yellow"]))
+        v2.real_fish(S, (x, y, z), rng.uniform(0.7, 1.5), rng.choice([0, pi]) + rng.uniform(-0.5, 0.5), kind="clown")
+    for k in range(16):
+        x, y = rng.uniform(-10.5, 10.5), rng.choice([-1, 1]) * rng.uniform(5.3, 7.0)
+        if k % 3:
+            v2.anemone(S, (x, y, z0 + 0.3), rng.uniform(0.7, 1.3), rng, mat=("anemone", "glow_magenta", "gel_violet")[k % 3] if k % 5 else "anemone")
+        else:
+            v2.coral(S, (x, y, z0 + 0.3), rng.uniform(1.6, 2.8), rng)
     for k in range(14):
         x, y = rng.uniform(-10, 10), rng.choice([-1, 1]) * rng.uniform(5.2, 7)
         S.sphere("NC_aquarium_bubbles", "bubble", (x, y, rng.uniform(z0 + 1, z1 - 1)), rng.uniform(0.12, 0.4), n=10)
@@ -337,21 +349,6 @@ def boardwalk(W):
         Tn, Nn, Rn = frames(seg)
         for off in (4.0, 4.5):
             S.grind(seg + Rn * off + Z * 0.42)
-    # benches and planters along the inner edge
-    rng = np.random.default_rng(5)
-    for k in range(26):
-        a = k * tau / 26 + 0.1
-        if any(abs((np.degrees(a) - g + 180) % 360 - 180) < 10 for g in (0, 90, 135, 301)):
-            continue
-        r = float(bw_r(a))
-        S.push((r * cos(a), r * sin(a), BW_Z), a + pi / 2)
-        if k % 2:
-            sk.ledge(S, "bw_bench", 6.0, 0.55, 0.45, glow="glow_cyan")
-        else:
-            S.push((0, 2.6, 0))
-            sk.manual_pad(S, "bw_pad", 5.0, 1.6, 0.2)
-            S.pop()
-        S.pop()
 
 
 # -------------------------------------------------------------- plaza ---
@@ -365,7 +362,7 @@ def plaza(W):
     L3 = L2 + 12 * sk.RISE
     xs = [0.0, 28.0, 52.0, 70.0, 82.0, 116.0]      # terrace front edges (local x)
     lv = [L3, L2, L1, L0, BW_Z - 0.02]
-    T.pad(sd_box((X0 + 58, 0), (56, W_ - 1)), BW_Z - 0.1, 4)
+    T.pad(sd_box((X0 + 58, 0), (56, W_ - 1)), BW_Z - 0.1, 4, deck=True)
     S.push((X0, 0, 0))
     for i in range(5):
         mat = "pave_blue" if i % 2 == 0 else "pave_white"
@@ -373,7 +370,7 @@ def plaza(W):
               (xs[i], -W_, -1.0), (xs[i + 1] + (0.0 if i < 4 else 0), W_, lv[i]), mats={"top": mat})
     # white inlay bands and edge trim
     for i in range(4):
-        S.box("SK_plaza_trim", "gel_white", (xs[i + 1] - 0.5, -W_, lv[i]), (xs[i + 1], W_, lv[i] + 0.012))
+        S.box("NC_decals", "gel_white", (xs[i + 1] - 0.5, -W_, lv[i]), (xs[i + 1], W_, lv[i] + 0.012))
 
     def drop(i, n, items):
         """Furnish the drop from terrace i down n stairs."""
@@ -496,7 +493,7 @@ def planter(W, pos, size):
     rng = np.random.default_rng(int(abs(wp[0] * 13 + wp[1] * 7)) % 9999)
     saved = S.xf
     S.xf = [(np.eye(3), np.zeros(3))]
-    sc.palm(S, wp, h=rng.uniform(7, 10), lean=rng.uniform(0.05, 0.25), yaw=rng.uniform(0, tau), rng=rng)
+    sc.palm(S, wp, h=rng.uniform(7, 10), lean=rng.uniform(0.05, 0.25), yaw=rng.uniform(0, tau), rng=rng, trunk="SC_planter_palms")
     S.xf = saved
 
 
@@ -516,21 +513,23 @@ def curved_ledge(S, name, path, w, h):
 
 
 # -------------------------------------------------------------- bowls ---
-def deck_with_holes(S, name, mat, R, holes, cell=1.0, rim="gel_white"):
-    """Flat round deck at local z=0 with holes left for sunken bowls."""
-    n = int(R / cell)
-    V, F = [], []
-    for i in range(-n, n):
-        for j in range(-n, n):
-            cx, cy = (i + 0.5) * cell, (j + 0.5) * cell
-            if hypot(cx, cy) > R - 0.75 or any(h(cx, cy) < 0.95 for h in holes):
-                continue
-            b = len(V)
-            V += [(i * cell, j * cell, 0), ((i + 1) * cell, j * cell, 0), ((i + 1) * cell, (j + 1) * cell, 0), (i * cell, (j + 1) * cell, 0)]
-            F.append((b, b + 1, b + 2, b + 3))
-    S.add(name, mat, V, F)
-    S.disc(name, rim, (0, 0, 0.012), R, n=120, r0=R - 1.8)
-    S.lathe(name.replace("SK_", "SC_"), "shell_white", [(R, -3.0), (R, 0.012)], n=120)
+def deck_with_holes(S, name, mat, R, rings, n=160):
+    """Flat round deck at local z=0. rings are closed outlines (the outer
+    edge of each bowl's apron); the deck is triangulated to meet them
+    vertex for vertex, so there is no overlap and no seam."""
+    import mapbox_earcut as earcut
+    a = np.linspace(0, tau, n, endpoint=False)
+    loops = [np.c_[R * np.cos(a), R * np.sin(a)]] + [np.asarray(r)[::-1, :2] for r in rings]
+    V = np.vstack(loops)
+    ends = np.cumsum([len(x) for x in loops]).astype(np.uint32)
+    tri = earcut.triangulate_float64(V, ends).reshape(-1, 3)
+    p = V[tri]
+    e1, e2 = p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]
+    area = e1[:, 0] * e2[:, 1] - e1[:, 1] * e2[:, 0]
+    tri[area < 0] = tri[area < 0][:, ::-1]
+    S.add(name, mat, np.c_[V, np.zeros(len(V))], tri.tolist())
+    S.disc("NC_decals", "gel_white", (0, 0, 0.012), R, n=n, r0=R - 1.8)
+    S.lathe(name.replace("SK_", "SC_"), "shell_white", [(R, -3.0), (R, 0.0)], n=n)
 
 
 def bowls(W):
@@ -538,7 +537,7 @@ def bowls(W):
     C = np.array([-96.0, 10.0])
     Zd = 4.4
     R = 40.0
-    T.pad(sd_circle(C, R - 1), Zd, 7)
+    T.pad(sd_circle(C, R + 0.6), Zd, 7, deck=True)
     specs = [  # centre, outline, depth, transition radius, colour
         ((-13.0, 15.0), lambda t: 9.0, 2.2, 2.6, "gel_cyan"),
         ((13.0, 13.0), lambda t: 10.5 * (1 + 0.17 * cos(3 * t)), 3.0, 3.0, "gel_magenta"),
@@ -549,11 +548,11 @@ def bowls(W):
     S.push((C[0], C[1], Zd))
     for k, (c, out, depth, Rt, mat) in enumerate(specs):
         S.push((c[0], c[1], 0.0))
-        sk.bowl(S, "bowl_%d" % k, out, depth, Rt, mat=mat)
+        ring = sk.bowl(S, "bowl_%d" % k, out, depth, Rt, mat=mat)
         S.pop()
-        holes.append(lambda x, y, c=c, out=out: hypot(x - c[0], y - c[1]) - out(atan2(y - c[1], x - c[0])))
+        holes.append(ring + np.array([c[0], c[1], 0.0]))
         rmax = max(out(t) for t in np.linspace(0, tau, 60))
-        T.dig(sd_circle((C[0] + c[0], C[1] + c[1]), rmax + 1.0), depth + 0.9, 4)
+        T.dig(sd_circle((C[0] + c[0], C[1] + c[1]), rmax + 1.0), depth + 1.5, 4)
     deck_with_holes(S, "SK_bowls_deck", "pave_white", R, holes)
     # vert ramp with the waterfall wall behind it
     S.push((19.0, -17.0, 0), radians(-25))
@@ -583,11 +582,11 @@ def minis(W):
     C = np.array([5.0, -100.0])
     Zd = 3.5
     R = 38.0
-    T.pad(sd_circle(C, R - 1), Zd, 7)
+    T.pad(sd_circle(C, R + 0.6), Zd, 7, deck=True)
     S.push((C[0], C[1], Zd))
     S.disc("SK_minis_deck", "pave_white", (0, 0, 0), R, n=120)
-    S.disc("SK_minis_deck", "gel_white", (0, 0, 0.012), R, n=120, r0=R - 1.8)
-    S.disc("SK_minis_deck", "gel_lime", (0, 0, 0.012), 20.6, n=120, r0=20.0)
+    S.disc("NC_decals", "gel_white", (0, 0, 0.012), R, n=120, r0=R - 1.8)
+    S.disc("NC_decals", "gel_lime", (0, 0, 0.012), 20.6, n=120, r0=20.0)
     S.lathe("SC_minis_deck", "shell_white", [(R, -3.0), (R, 0.012)], n=120)
     S.push((-18, 12, 0), radians(20))
     sk.halfpipe(S, "mini_a", 7.0, 1.2, 2.2, flat=3.6, mat="gel_cyan")
@@ -648,11 +647,11 @@ def gardens(W):
     S, T = W.S, W.T
     C = np.array([76.0, 76.0])
     Zd = 3.2
-    T.pad(sd_circle(C, 27), Zd, 8)
+    T.pad(sd_circle(C, 27.6), Zd, 8, deck=True)
     T.dig(sd_circle(C, 13.5), 1.6, 3)
     S.push((C[0], C[1], Zd))
     S.disc("SK_garden_deck", "pave_white", (0, 0, 0), 27, n=96, r0=14.0)
-    S.disc("SK_garden_deck", "gel_white", (0, 0, 0.012), 27, n=96, r0=25.6)
+    S.disc("NC_decals", "gel_white", (0, 0, 0.012), 27, n=96, r0=25.6)
     S.lathe("SK_garden_pool", "marble", [(14.0, 0), (14.0, 0.4), (13.4, 0.4), (13.4, -1.8)], n=96)
     for rr in (14.0, 13.4):
         S.grind([(rr * cos(a), rr * sin(a), 0.4) for a in np.linspace(0, tau, 97)])
@@ -662,7 +661,7 @@ def gardens(W):
         S.push((x, y, 0))
         S.lathe("SK_lily_pads", "gel_lime", [(0.25, -1.9), (0.3, 0.1), (r, 0.3), (r, 0.42)], n=36)
         S.disc("SK_lily_pads", "gel_lime", (0, 0, 0.42), r, n=36)
-        S.disc("SK_lily_pads", "gel_white", (0, 0, 0.432), r, n=36, r0=r - 0.25)
+        S.disc("NC_decals", "gel_white", (0, 0, 0.432), r, n=36, r0=r - 0.25)
         S.pop()
     # crescent wall with a waterfall
     a0, a1 = radians(20), radians(110)
@@ -708,10 +707,11 @@ def islet(W):
             b = path[i] + Rn[i] * sg * 1.5
             S.tube("SC_rope_bridge", "wood", [b - Z * 3, b + Z * 1.5], 0.16, n=8)
     W.wall_gaps.append((float(np.degrees(a)) % 360, 1.4))
+    W.keepout.append(sd_path(path[::3], 5))
     T.pad(sd_circle(ic, 9), 3.4, 6)
     S.push((ic[0], ic[1], 3.4))
     S.disc("SK_islet_deck", "gel_cyan", (0, 0, 0), 9, n=64)
-    S.disc("SK_islet_deck", "gel_white", (0, 0, 0.012), 9, n=64, r0=8.2)
+    S.disc("NC_decals", "gel_white", (0, 0, 0.012), 9, n=64, r0=8.2)
     u2 = np.linspace(0, 1, 16)
     S.lathe("SK_islet_volcano", "gel_magenta", np.c_[4.2 * (1 - u2) + 0.9 * u2, 1.5 * 0.5 * (1 - np.cos(pi * u2))], n=48)
     S.disc("SK_islet_volcano", "gel_white", (0, 0, 1.5), 0.9, n=24)
@@ -762,12 +762,16 @@ def scatter(W):
     for k in range(7):
         a = k * tau / 7 + 0.3
         x, y = ic[0] + 12.5 * cos(a), ic[1] + 12.5 * sin(a)
+        if abs((a - atan2(-ic[1], -ic[0]) + pi) % tau - pi) < 0.6:
+            continue                      # keep the bridge landing clear
         sc.palm(S, (x, y, T.h1(x, y) - 0.25), h=rng.uniform(8, 12), lean=rng.uniform(0.2, 0.5), yaw=a, rng=rng)
     # rocks at the waterline, bushes inland
     for k in range(70):
         a = rng.uniform(0, tau)
         r = float(T.coast(a)) + rng.uniform(-3, 6)
         x, y = r * cos(a), r * sin(a)
+        if not free(x, y, 1.5):
+            continue
         sc.rock(S, (x, y, T.h1(x, y) + 0.1), rng.uniform(0.5, 2.0), rng)
     n = 0
     while n < 150:
@@ -784,10 +788,10 @@ def scatter(W):
         S.sphere("NC_bubbles", "bubble", (r * cos(a), r * sin(a), max(z, T.h1(r * cos(a), r * sin(a)) + 4)),
                  rng.choice([0.5, 0.8, 1.2, 1.8, 2.6, 4.0], p=[0.25, 0.25, 0.2, 0.15, 0.1, 0.05]), n=24)
     # wind farm, boats, dolphins in the lagoon
-    for k, (deg, r) in enumerate(((22, 262), (38, 284), (54, 262), (236, 300), (252, 282), (318, 290), (334, 272))):
+    for k, (deg, r) in enumerate(((120, 300), (150, 310), (170, 300), (210, 310), (296, 310), (318, 300), (336, 290))):
         p = polar(r, deg, 0)
         sc.turbine(S, (p[0], p[1], 0), h=rng.uniform(38, 46), yaw=radians(200), phase=rng.uniform(0, 2))
-    for (deg, r, yaw) in ((150, 250, 0.6), (285, 262, 2.4), (10, 255, 4.0), (200, 300, 1.2), (75, 300, 5.2)):
+    for (deg, r, yaw) in ((150, 250, 0.6), (285, 262, 2.4), (350, 250, 4.0), (200, 300, 1.2), (75, 300, 5.2)):
         p = polar(r, deg, 0)
         sc.sailboat(S, (p[0], p[1], -0.25), yaw, L=rng.uniform(8, 12))
     for (deg, r, yaw) in ((104, 232, 1.2), (107, 238, 1.3), (112, 228, 1.0), (300, 232, 3.0), (303, 238, 3.2)):
@@ -804,7 +808,7 @@ def scatter(W):
 
 def build():
     W = World()
-    hub(W)
+    v2.spire(W)
     ring_and_spurs(W)
     plaza(W)
     bowls(W)
@@ -815,7 +819,13 @@ def build():
     pts = splash(W)
     splash_pad_and_return(W, pts)
     aqueduct(W)
+    v2.drain(W)
+    v2.island2(W)
+    v2.highway(W)
     islet(W)
+    v2.scatter_spots(W)
+    v2.more_bowl_spots(W)
+    v2.pool_life(W)
     boardwalk(W)
     for f in W.late:
         f()

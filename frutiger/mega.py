@@ -133,7 +133,7 @@ def ribbon(S, name, path, width, mat, breaks=(), thick=0.45, edge=0.45,
 
 
 def pylons(S, T, name, path, every=11.0, r=0.55, max_slope=0.9, min_h=1.2,
-           mat="shell_white", skip=()):
+           mat="shell_white", skip=(), ok=None):
     """White tapered columns from the underside of a ramp to the ground."""
     path = np.asarray(path, float)
     d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))]
@@ -147,14 +147,18 @@ def pylons(S, T, name, path, every=11.0, r=0.55, max_slope=0.9, min_h=1.2,
         if abs(t[2]) > max_slope or any(a <= i < b for a, b in skip):
             continue
         x, y, z = path[i]
+        if ok is not None and not ok(float(x), float(y)):
+            continue
         g = max(T.h1(x, y), -6.0) - 0.5
         slope = abs(t[2]) / max(1e-3, (1 - t[2] ** 2) ** 0.5)
-        top = z - 0.5 - r * 1.9 * slope
+        top = z - 0.5 - r * 3.2 * slope
         if top - g < min_h:
             continue
         hgt = top - g
+        r0, r = r, r * (1 + hgt / 45.0)        # taller columns are thicker
         prof = [(r * 1.5, 0), (r * 1.15, 0.5), (r * 0.8, hgt * 0.55), (r, hgt - 0.6), (r * 1.9, hgt)]
         S.push((x, y, g))
         S.lathe("SC_" + name + "_pylons", mat, prof, n=14)
         S.disc("SC_" + name + "_pylons", mat, (0, 0, hgt), r * 1.9, n=14)
         S.pop()
+        r = r0

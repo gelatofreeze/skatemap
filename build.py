@@ -39,12 +39,13 @@ def main():
     W = layout.build()
     S = W.S
     import bpy
-    export.build_scene(S, {"terrain": W.T.texture(2048), "globe": globe_texture()}, DIST)
+    export.build_scene(S, {"terrain": W.T.texture(), "globe": globe_texture()}, DIST)
 
     groups = {"terrain": dict(names={"SC_terrain", "NC_seabed", "NC_water"}),
               "skate": dict(prefixes={"SK", "GR"}),
               "scenery": dict(prefixes={"SC"}),
-              "palms": dict(names={"NC_palm_fronds_a", "NC_palm_nuts", "NC_bushes"}),
+              "palms": dict(names={"NC_palm_fronds_a"}),
+              "palms2": dict(names={"NC_palm_fronds_b", "NC_palm_nuts", "NC_bushes"}),
               "deco": dict(prefixes={"NC", "OP"})}
     taken = set()
     manifest = []

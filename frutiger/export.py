@@ -3,6 +3,7 @@ import os
 from math import radians
 import numpy as np
 import bpy
+import bmesh
 
 # name: (base colour, roughness, metallic, alpha, emission strength, clearcoat)
 MATERIALS = {
@@ -55,8 +56,38 @@ MATERIALS = {
     "fish_yellow":  ("#FFE02E", 0.3, 0.0, 1.0, 0.0, 0.5),
     "fish_white":   ("#FFFFFF", 0.3, 0.0, 1.0, 0.0, 0.5),
     "dolphin":      ("#7FA6C9", 0.25, 0.0, 1.0, 0.0, 0.8),
+    # retro-desktop set and textured surfaces (see TEXTURE_FILES)
+    "ink":          ("#101418", 0.4, 0.0, 1.0, 0.0, 0.3),
+    "win_grey":     ("#C3C7CB", 0.45, 0.0, 1.0, 0.0, 0.2),
+    "ui_paint":     ("#FFFFFF", 0.18, 0.0, 1.0, 0.0, 0.8),
+    "ui_pool":      ("#FFFFFF", 0.18, 0.0, 1.0, 0.0, 0.8),
+    "ui_error":     ("#FFFFFF", 0.22, 0.0, 1.0, 0.0, 0.6),
+    "ui_taskbar":   ("#FFFFFF", 0.25, 0.0, 1.0, 0.0, 0.6),
+    "ui_progress":  ("#FFFFFF", 0.2, 0.0, 1.0, 0.0, 0.8),
+    "ui_player":    ("#FFFFFF", 0.12, 0.0, 1.0, 0.0, 1.0),
+    "ui_wallpaper": ("#FFFFFF", 0.18, 0.0, 1.0, 0.0, 0.8),
+    "ui_cd":        ("#FFFFFF", 0.06, 0.6, 1.0, 0.0, 1.0),
+    "pool_floor":   ("#FFFFFF", 0.15, 0.0, 1.0, 0.0, 1.0),
+    "fish_clown":   ("#FFFFFF", 0.3, 0.0, 1.0, 0.0, 0.6),
+    "fish_gold":    ("#FFFFFF", 0.3, 0.0, 1.0, 0.0, 0.6),
+    "fin_orange":   ("#FF7A10", 0.4, 0.0, 0.85, 0.0, 0.3),
+    "anemone":      ("#FF8FC8", 0.5, 0.0, 1.0, 0.3, 0.3),
+    "coral":        ("#FF6F61", 0.7, 0.0, 1.0, 0.0, 0.0),
+    "duck":         ("#FFD21A", 0.2, 0.0, 1.0, 0.0, 1.0),
+    "duck_beak":    ("#FF8A00", 0.3, 0.0, 1.0, 0.0, 0.6),
+    "sand":         ("#F4E2B0", 0.9, 0.0, 1.0, 0.0, 0.0),
+    "rainbow_r":    ("#FF4D4D", 0.2, 0.0, 0.8, 0.6, 0.5),
+    "rainbow_y":    ("#FFE14D", 0.2, 0.0, 0.8, 0.6, 0.5),
+    "rainbow_g":    ("#6BEA4B", 0.2, 0.0, 0.8, 0.6, 0.5),
+    "rainbow_b":    ("#3FC8FF", 0.2, 0.0, 0.8, 0.6, 0.5),
+    "rainbow_v":    ("#9C6BFF", 0.2, 0.0, 0.8, 0.6, 0.5),
 }
-DOUBLE_SIDED = {"palm_leaf", "sail", "water_fall", "aurora_cyan", "aurora_lime", "aurora_magenta",
+# material -> image file in frutiger/textures
+TEXTURE_FILES = {"boardwalk": "planks", "wood": "planks", "pave_white": "tiles", "ui_paint": "win_paint",
+                 "ui_pool": "win_pool", "ui_error": "win_error", "ui_taskbar": "taskbar", "ui_progress": "progress",
+                 "ui_player": "player", "ui_wallpaper": "wallpaper", "ui_cd": "cd", "pool_floor": "caustics",
+                 "fish_clown": "clownfish", "fish_gold": "goldfish"}
+DOUBLE_SIDED = {"palm_leaf", "sail", "water_fall", "aurora_cyan", "aurora_lime", "aurora_magenta", "fin_orange", "rainbow_r", "rainbow_y", "rainbow_g", "rainbow_b", "rainbow_v",
                 "glass_blue", "glass_frost", "glass_pipe", "tank_water", "bubble", "solar", "fish_white", "dolphin"}
 
 
@@ -120,7 +151,13 @@ def build_scene(S, texture_arrays, outdir, title="FrutigerAir"):
     scene = bpy.context.scene
     scene.name = title
     scene.unit_settings.system = "METRIC"
-    mats = make_materials({k: make_image(k, v, outdir) for k, v in texture_arrays.items()})
+    images = {k: make_image(k, v, outdir) for k, v in texture_arrays.items()}
+    tex_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "textures")
+    for mat, fname in TEXTURE_FILES.items():
+        img = bpy.data.images.load(os.path.join(tex_dir, fname + ".png"), check_existing=True)
+        img.pack()
+        images[mat] = img
+    mats = make_materials(images)
     cols = {}
     for k, label in COLLECTIONS.items():
         c = bpy.data.collections.new(label)
@@ -152,6 +189,14 @@ def build_scene(S, texture_arrays, outdir, title="FrutigerAir"):
         uvl = me.uv_layers.new(name="UVMap")
         uvl.data.foreach_set("uv", UV[li].astype(np.float32).ravel())
         me.update()
+        if name[:2] in ("SK", "GR", "SC") and name != "SC_terrain":
+            # weld coincident vertices so ride surfaces are continuous, with no cracks to catch a wheel
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.002)
+            bm.to_mesh(me)
+            bm.free()
+            me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
         if hasattr(me, "set_sharp_from_angle"):
             me.set_sharp_from_angle(angle=radians(38))
         ob = bpy.data.objects.new(name, me)

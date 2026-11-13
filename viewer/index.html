@@ -64,7 +64,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 6000);
 const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.497; controls.minDistance = 3; controls.maxDistance = 900;
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.497; controls.minDistance = 3; controls.maxDistance = 1400;
 
 // Map coordinates are x east, y north, z up; glTF is y up, so map (x, y, z) -> three (x, z, -y).
 const M = (x, y, z) => new THREE.Vector3(x, z, -y);
@@ -98,7 +98,7 @@ let envRT = null;
 
 const sun = new THREE.DirectionalLight(0xffffff, 3);
 sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, {left:-230, right:230, top:230, bottom:-230, near:10, far:1400});
+Object.assign(sun.shadow.camera, {left:-300, right:300, top:300, bottom:-300, near:10, far:1600});
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.25;
 scene.add(sun, sun.target);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x88cc66, 1);
@@ -180,8 +180,11 @@ async function load(){
 
 // ---- views ----------------------------------------------------------------
 const VIEWS = {
-  island:  ['Island',      [-330,-300,190], [0,0,10]],
-  spire:   ['Spire',       [34,-46,62],     [0,0,46]],
+  island:  ['Islands',     [-260,-420,230], [120,0,10]],
+  spire:   ['Spire',       [70,-78,96],     [0,0,60]],
+  drain:   ['The Drain',   [-250,-190,60],  [-110,-230,8]],
+  highway: ['Highway',     [330,260,110],   [380,90,25]],
+  desktop: ['Desktop Cay', [470,-40,34],    [428,58,3]],
   bliss:   ['Bliss Drop',  [-150,-40,36],   [-62,-62,12]],
   aurora:  ['Aurora Loop', [-20,120,34],    [-62,62,18]],
   splash:  ['Splash',      [95,300,34],     [0,215,6]],

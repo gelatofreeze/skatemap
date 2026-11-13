@@ -46,6 +46,9 @@ def extrude(S, name, mat, prof, w, side=None, y0=None, base=0.0, uvs=None):
 def coping(S, name, a, b, r=0.045):
     """Steel coping / rail edge between two local points. Also records a
     grind line for the Blender scene."""
+    # a and b sit on the deck edge; the pipe is sunk so only 8 mm stands proud
+    dz = np.array([0, 0, -r - 0.002])
+    a, b = np.asarray(a, float) + dz, np.asarray(b, float) + dz
     S.tube("GR_" + name, "chrome", [a, b], r, n=8)
     S.grind([a, b])
 
@@ -210,7 +213,7 @@ def bowl(S, name, outline, depth, R, mat="gel_cyan", n=120, apron=1.3,
     ap[:, 0, :2] = O
     ap[:, 1, :2] = O - inward * apron
     S.grid("SK_" + name, apron_mat, ap, cu=True, flip=True)
-    lip = np.c_[O, np.full(n, 0.012)]
+    lip = np.c_[O, np.full(n, -0.042)]
     S.tube("GR_" + name + "_coping", "chrome", lip, 0.05, n=8, closed=True)
     S.grind(np.vstack([lip, lip[:1]]))
-    return r.max() + apron
+    return np.c_[O - inward * apron, np.zeros(n)]      # apron's outer ring, for the deck to meet

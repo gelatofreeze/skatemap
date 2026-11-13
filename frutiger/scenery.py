@@ -4,15 +4,15 @@ from math import sin, cos, pi, tau, radians
 from .mesh import Z, unit, frames
 
 
-def palm(S, pos, h=9.0, lean=0.25, yaw=0.0, rng=None, fronds=11, group="a"):
+def palm(S, pos, h=9.0, lean=0.25, yaw=0.0, rng=None, fronds=11, group="a", trunk="SC_palm_trunks"):
     rng = rng or np.random.default_rng(0)
     d = np.array([cos(yaw), sin(yaw), 0.0])
     t = np.linspace(0, 1, 14)
-    trunk = (np.asarray(pos, float) + np.outer(t * h, Z)
+    trunk_path = (np.asarray(pos, float) + np.outer(t * h, Z)
              + np.outer(lean * h * t ** 2, d))
     rad = 0.30 - 0.14 * t + 0.10 * np.exp(-t * 9) + 0.015 * np.sin(t * 60)
-    S.tube("SC_palm_trunks", "palm_trunk", trunk, rad, n=9, caps=False)
-    top = trunk[-1]
+    S.tube(trunk, "palm_trunk", trunk_path, rad, n=9, caps=False)
+    top = trunk_path[-1]
     for k in range(3):
         a = k * 2.1 + yaw
         S.sphere("NC_palm_nuts", "coconut", top + np.array([0.28 * cos(a), 0.28 * sin(a), -0.25]), 0.17, n=8)

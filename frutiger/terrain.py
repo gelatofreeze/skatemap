@@ -5,8 +5,8 @@ import numpy as np
 from scipy.spatial import cKDTree
 from .mesh import smoothstep
 
-EXTENT = 340.0      # half-size of the terrain grid
-CLEAR = 0.15        # how far terrain sits below a slab
+XMIN, XMAX, YMIN, YMAX = -360.0, 610.0, -410.0, 360.0     # terrain grid bounds
+CLEAR = 0.35        # how far terrain sits below a slab
 
 
 def sd_circle(c, r):
@@ -53,32 +53,41 @@ def sd_path(path, r):
 class Terrain:
     def __init__(self):
         self.pads = []
+        self.deck_pads = []
 
     @staticmethod
     def coast(th):
         return 185 + 8 * np.sin(2 * th + 0.5) + 5 * np.sin(3 * th + 1.7) + 3 * np.sin(5 * th)
 
     ISLET = (-236.0, -72.0)
+    ISLAND2 = (430.0, 60.0)
+
+    @staticmethod
+    def coast2(th):
+        return 66 + 4 * np.sin(2 * th + 1.0) + 3 * np.sin(3 * th)
 
     def base(self, x, y):
         x, y = np.asarray(x, float), np.asarray(y, float)
         r = np.hypot(x, y)
-        sd = self.coast(np.arctan2(y, x)) - r          # distance inland
+        sd1 = self.coast(np.arctan2(y, x)) - r         # distance inland, main island
+        x2, y2 = x - self.ISLAND2[0], y - self.ISLAND2[1]
+        sd2 = self.coast2(np.arctan2(y2, x2)) - np.hypot(x2, y2)
+        sd = np.maximum(sd1, sd2)
         sea = -7.0 * (1 - np.exp(np.minimum(sd, 0) / 40.0))
         land = 2.2 * (1 - np.exp(-np.maximum(sd, 0) / 9.0))
         hill = 10.0 * np.exp(-(r / 50.0) ** 2)
         roll = (0.45 * np.sin(x * 0.11 + 1.3) * np.cos(y * 0.09 - 0.4)
-                + 0.25 * np.sin(x * 0.23 - y * 0.19)) * smoothstep(20, 45, sd)
+                + 0.25 * np.sin(x * 0.23 - y * 0.19)) * smoothstep(20, 45, sd1)
         h = np.where(sd < 0, sea, land + hill + roll)
         di = np.hypot(x - self.ISLET[0], y - self.ISLET[1])
         h = h + 9.0 * np.exp(-(di / 17.0) ** 2)
-        # sand bar that the pier pads rest near, and a soft reef ring
-        h = h + 1.2 * np.exp(-((r - 300) / 14.0) ** 2) * (sd < 0)
         return h
 
-    def pad(self, sdf, z, blend=8.0):
-        """Flatten terrain to z (number or f(x, y)) where sdf < 0."""
-        self.pads.append(("flat", sdf, z, blend))
+    def pad(self, sdf, z, blend=8.0, deck=False):
+        """Flatten terrain to z (number or f(x, y)) where sdf < 0. Deck pads
+        are applied after every path pad, so a path that ramps onto a deck
+        never lifts the ground through it."""
+        (self.deck_pads if deck else self.pads).append(("flat", sdf, z, blend))
 
     def dig(self, sdf, depth, blend=5.0):
         """Lower terrain by depth where sdf < 0 (for sunken bowls, pools)."""
@@ -89,9 +98,15 @@ class Terrain:
         self.pads.append(("cap", sdf, z, blend))
 
     def height(self, x, y):
+        """Order matters: decks shape the land, paths cut across it, then
+        each deck's own footprint is flattened again so nothing a path
+        raised can come up through a deck, and digs go last."""
         x, y = np.asarray(x, float), np.asarray(y, float)
         h = self.base(x, y)
-        for mode, sdf, z, blend in self.pads:
+        flats = [p for p in self.pads if p[0] != "dig"]
+        digs = [p for p in self.pads if p[0] == "dig"]
+        cores = [(m, sdf, z, 0.6) for m, sdf, z, blend in self.deck_pads]
+        for mode, sdf, z, blend in self.deck_pads + flats + cores + digs:
             d = sdf(x, y)
             w = 1 - smoothstep(0, blend, d)
             if mode == "dig":
@@ -106,7 +121,7 @@ class Terrain:
     def clear_of_pads(self, x, y, margin=3.0):
         """True where no pad is within margin (used to scatter scenery)."""
         ok = np.ones(np.shape(x), bool)
-        for mode, sdf, z, blend in self.pads:
+        for mode, sdf, z, blend in self.pads + self.deck_pads:
             ok &= sdf(x, y) > margin
         return ok
 
@@ -115,28 +130,34 @@ class Terrain:
 
     # -- mesh and texture -------------------------------------------------
     def build(self, S, step=2.0):
-        n = int(2 * EXTENT / step) + 1
-        ax = np.linspace(-EXTENT, EXTENT, n)
-        X, Y = np.meshgrid(ax, ax, indexing="ij")
+        ax = np.arange(XMIN, XMAX + 1e-6, step)
+        ay = np.arange(YMIN, YMAX + 1e-6, step)
+        X, Y = np.meshgrid(ax, ay, indexing="ij")
         H = self.height(X, Y)
         P = np.stack([X, Y, H], -1)
-        uv = np.stack([(X + EXTENT) / (2 * EXTENT), (Y + EXTENT) / (2 * EXTENT)], -1)
+        uv = np.stack([(X - XMIN) / (XMAX - XMIN), (Y - YMIN) / (YMAX - YMIN)], -1)
         S.grid("SC_terrain", "terrain", P, uv=uv.reshape(-1, 2))
         # far sea bed so the horizon is never empty
-        e, f = EXTENT, 2600.0
-        for (x0, x1, y0, y1) in ((-f, f, e, f), (-f, f, -f, -e), (-f, -e, -e, e), (e, f, -e, e)):
+        f = 2600.0
+        for (x0, x1, y0, y1) in ((-f, f, YMAX, f), (-f, f, -f, YMIN), (-f, XMIN, YMIN, YMAX), (XMAX, f, YMIN, YMAX)):
             S.add("NC_seabed", "seabed", [[x0, y0, -7], [x1, y0, -7], [x1, y1, -7], [x0, y1, -7]],
                   [(0, 1, 2, 3)])
 
-    def texture(self, res=2048):
-        """Albedo map: sand, wet sand, lawn, sea-bed, with painted variation."""
-        ax = np.linspace(-EXTENT, EXTENT, res)
-        X, Y = np.meshgrid(ax, ax, indexing="ij")
-        H = self.height(X, Y)
-        gx, gy = np.gradient(H, ax, ax)
+    def texture(self, px=0.37):
+        """Albedo map: sand, wet sand, lawn, sea-bed, with painted variation.
+        Heights are sampled at half resolution and upsampled."""
+        from scipy.ndimage import zoom
+        rx, ry = int((XMAX - XMIN) / px) // 4 * 4, int((YMAX - YMIN) / px) // 4 * 4
+        hx, hy = np.linspace(XMIN, XMAX, rx // 2), np.linspace(YMIN, YMAX, ry // 2)
+        Hh = self.height(*np.meshgrid(hx, hy, indexing="ij"))
+        H = zoom(Hh, 2, order=1)
+        ax, ay = np.linspace(XMIN, XMAX, rx), np.linspace(YMIN, YMAX, ry)
+        X, Y = np.meshgrid(ax, ay, indexing="ij")
+        gx, gy = np.gradient(H, ax, ay)
         slope = np.hypot(gx, gy)
+        res = (rx, ry)
         rng = np.random.default_rng(7)
-        grain = rng.random((res, res))
+        grain = rng.random(res)
         blot = (np.sin(X * 0.21 + 2 * np.sin(Y * 0.05)) * np.sin(Y * 0.17 + 1.5 * np.cos(X * 0.07))
                 + 0.5 * np.sin(X * 0.63 + Y * 0.41))
         col = lambda h: np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)], float) / 255
